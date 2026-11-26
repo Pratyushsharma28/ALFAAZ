@@ -10,6 +10,7 @@ import {
   SectionDividerLine,
   staggerContainerVariants,
   staggerItemVariants,
+  useIsCompactOrTouch,
 } from './MotionPrimitives';
 
 interface CategoryItem {
@@ -105,6 +106,7 @@ export function CategoriesSection() {
   const [panelHovered, setPanelHovered] = useState(false);
   const [poetryWordIdx, setPoetryWordIdx] = useState(0);
   const shouldReduceMotion = useReducedMotion();
+  const isCompactOrTouch = useIsCompactOrTouch();
 
   const activeCategory = CATEGORIES.find((c) => c.id === activeId) ?? CATEGORIES[0];
 
@@ -252,7 +254,7 @@ export function CategoriesSection() {
                               className="w-[2px] origin-bottom bg-[#FF1744] shadow-[0_0_6px_rgba(255,23,68,0.8)]"
                               style={{ height: '14px' }}
                               animate={
-                                shouldReduceMotion
+                                shouldReduceMotion || (isCompactOrTouch && !isSelected)
                                   ? { scaleY: peak * 0.7 }
                                   : {
                                       scaleY:
@@ -262,7 +264,7 @@ export function CategoriesSection() {
                                     }
                               }
                               transition={
-                                shouldReduceMotion
+                                shouldReduceMotion || (isCompactOrTouch && !isSelected)
                                   ? undefined
                                   : {
                                       duration: isHovered ? 0.6 + i * 0.08 : 1.2 + i * 0.12,
@@ -289,7 +291,7 @@ export function CategoriesSection() {
                             strokeWidth="1.6"
                             strokeLinecap="round"
                             animate={
-                              shouldReduceMotion
+                              shouldReduceMotion || (isCompactOrTouch && !isSelected)
                                 ? undefined
                                 : {
                                     d: isHovered
@@ -306,7 +308,7 @@ export function CategoriesSection() {
                                   }
                             }
                             transition={
-                              shouldReduceMotion
+                              shouldReduceMotion || (isCompactOrTouch && !isSelected)
                                 ? undefined
                                 : {
                                     duration: isHovered ? 0.9 : 2.4,
@@ -512,7 +514,7 @@ export function CategoriesSection() {
 
               <div className="relative z-10 flex flex-col justify-between gap-6 border-t border-[#EAE7E0]/15 pt-6 lg:col-span-5 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
                 <div>
-                  <p className="text-xs font-semibold tracking-widest text-[#EAE7E0]/60 uppercase">
+                  <p className="text-xs font-semibold tracking-widest text-[#EAE7E0]/75 uppercase">
                     Stage Focus
                   </p>
                   <ul className="mt-3 space-y-2 text-sm text-[#EAE7E0]/85">

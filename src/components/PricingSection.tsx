@@ -62,11 +62,30 @@ export function PricingSection() {
   const handleCopySummary = async () => {
     const text = `ALFAAZ — UNFILTERED | 18 Dec 2026 | Quad AI, Bengaluru | Pass: ${activeTier.name} (${activeTier.price})`;
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        throw new Error('Clipboard API unavailable');
+      }
       setCopiedSummary(true);
       window.setTimeout(() => setCopiedSummary(false), 2400);
     } catch {
-      setCopiedSummary(false);
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.className = 'fixed -left-[9999px] opacity-0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        setCopiedSummary(ok);
+        if (ok) {
+          window.setTimeout(() => setCopiedSummary(false), 2400);
+        }
+      } catch {
+        setCopiedSummary(false);
+      }
     }
   };
 
@@ -169,6 +188,7 @@ export function PricingSection() {
                     <button
                       type="button"
                       aria-pressed={isSelected}
+                      aria-label={`Select ${tier.name} pass (${tier.price})`}
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedTier(tier.id);

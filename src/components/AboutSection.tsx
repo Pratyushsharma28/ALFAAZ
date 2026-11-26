@@ -147,7 +147,7 @@ export function AboutSection() {
                   />
                 )}
               </div>
-              <p className="text-xs font-semibold tracking-widest text-[#EAE7E0]/55 uppercase">
+              <p className="text-xs font-semibold tracking-widest text-[#EAE7E0]/70 uppercase">
                 Curated &amp; Organised By
               </p>
               <p className="mt-1 font-display text-2xl font-extrabold tracking-wide text-[#EAE7E0] uppercase">

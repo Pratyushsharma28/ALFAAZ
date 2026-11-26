@@ -127,7 +127,7 @@ export function Navbar() {
             preserveAspectRatio="xMidYMid meet"
             fill="currentColor"
             aria-hidden="true"
-            className="h-[15px] w-[14px] shrink-0 sm:h-[20px] sm:w-[19px]"
+            className="h-[16px] w-[15px] shrink-0 sm:h-[21px] sm:w-[20px]"
           >
             {shieldPaths.map((p, idx) => (
               <path key={idx} d={p.d} transform={p.transform} />
@@ -193,7 +193,7 @@ export function Navbar() {
             whileHover={shouldReduceMotion ? undefined : { scale: 1.04, y: -2 }}
             whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
             transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
-            className="neon-cta-breathe group inline-flex min-h-[40px] cursor-pointer items-center gap-1.5 border border-[#FF1744]/80 bg-[#FF1744] px-5 py-2 font-display text-base font-extrabold tracking-wider text-[#EAE7E0] uppercase transition-all duration-200 hover:bg-[#ff2b54] hover:shadow-[0_0_30px_rgba(255,23,68,0.75)] whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EAE7E0]"
+            className="neon-cta-breathe group inline-flex min-h-[40px] cursor-pointer items-center gap-1.5 border border-[#FF1744]/80 bg-[#FF1744] px-3.5 py-2 font-display text-sm font-extrabold tracking-wider text-[#EAE7E0] uppercase transition-all duration-200 hover:bg-[#ff2b54] hover:shadow-[0_0_30px_rgba(255,23,68,0.75)] whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EAE7E0] sm:px-5 sm:text-base"
           >
             <span>Register Now</span>
             <ArrowUpRight

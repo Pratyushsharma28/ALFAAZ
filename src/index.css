@@ -8,10 +8,15 @@
   }
 
   html {
-    scroll-behavior: smooth;
     font-family: var(--font-sans);
     background-color: #050505;
     color: #eae7e0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
 
   h1,

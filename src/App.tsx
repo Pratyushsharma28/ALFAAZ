@@ -53,9 +53,15 @@ export default function App() {
           aria-hidden={isIntroOpen}
           className="relative flex min-h-screen flex-col"
         >
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:border focus:border-[#FF1744] focus:bg-[#050505] focus:px-4 focus:py-2 focus:font-mono-num focus:text-xs focus:font-semibold focus:tracking-widest focus:text-[#EAE7E0] focus:uppercase"
+          >
+            Skip to main content
+          </a>
           <Navbar />
 
-          <main className="flex-1">
+          <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
             <HeroSection onOpenPoster={() => setIsIntroOpen(true)} />
             <CountdownSection />
             <AboutSection />

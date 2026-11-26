@@ -65,6 +65,7 @@ function TimelineNode({
       onFocus={onHoverStart}
       onBlur={onHoverEnd}
       tabIndex={0}
+      aria-label={`${item.label}: ${item.value} (${item.meta})`}
       animate={
         shouldReduceMotion
           ? undefined
@@ -191,7 +192,7 @@ function TimelineNode({
           {item.value}
         </p>
 
-        <p className="mt-1 font-mono-num text-[11px] tracking-wider text-[#EAE7E0]/65">
+        <p className="mt-1 font-mono-num text-[11px] tracking-wider text-[#EAE7E0]/75">
           {item.meta}
         </p>
       </div>

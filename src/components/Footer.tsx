@@ -8,11 +8,13 @@ interface FooterProps {
 }
 
 const FOOTER_LINKS = [
+  { label: 'Home', href: '#top' },
+  { label: 'Countdown', href: '#countdown' },
   { label: 'About', href: '#about' },
   { label: 'Categories', href: '#categories' },
-  { label: 'Passes', href: '#passes' },
+  { label: 'Registration', href: '#passes' },
   { label: 'Prizes', href: '#prizes' },
-  { label: 'Details', href: '#details' },
+  { label: 'Event Details', href: '#details' },
   { label: 'FAQ', href: '#faq' },
 ];
 
@@ -53,37 +55,45 @@ export function Footer({ onOpenPoster }: FooterProps) {
       />
 
       <div className="relative mx-auto max-w-[1440px] px-6 lg:px-10">
-        <RevealBlock className="grid grid-cols-1 gap-10 pb-12 lg:grid-cols-12 lg:items-end">
-          <div className="lg:col-span-7">
+        <RevealBlock className="grid grid-cols-1 gap-10 pb-12 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center lg:gap-8">
+          {/* LEFT: Existing Footer Branding */}
+          <div className="min-w-0">
             <p className="font-mono-num text-xs tracking-widest text-[#C8F36B] uppercase">
               18 December 2026 · Quad AI, Bengaluru
             </p>
-            <h2 className="mt-3 font-display text-[clamp(3rem,9.5vw,8rem)] leading-[0.82] font-black tracking-tight text-[#EAE7E0] uppercase">
+            <h2 className="mt-3 font-display text-[clamp(3rem,9.5vw,8rem)] leading-[0.82] font-black tracking-tight text-[#EAE7E0] uppercase lg:text-[clamp(3.25rem,5vw,5.75rem)]">
               ALFAAZ <span className="neon-text-crimson text-[#FF1744]">UNFILTERED</span>
             </h2>
           </div>
 
-          <div className="flex flex-col gap-6 lg:col-span-5 lg:items-end">
+          {/* CENTER: Dedicated Navigation Section */}
+          <div className="flex flex-col items-start lg:items-center lg:justify-self-center">
+            <p className="font-mono-num text-[11px] font-semibold tracking-[0.22em] text-[#EAE7E0]/55 uppercase">
+              Navigation
+            </p>
             <nav
               aria-label="Footer navigation"
-              className="flex flex-wrap gap-6 text-sm text-[#EAE7E0]/75"
+              className="mt-3.5 grid w-full max-w-[340px] grid-flow-col grid-cols-2 grid-rows-4 gap-x-8 gap-y-1 text-sm font-medium text-[#EAE7E0]/80 sm:w-auto sm:max-w-none lg:mt-4 lg:gap-x-10 lg:gap-y-1.5"
             >
               {FOOTER_LINKS.map((link) => (
                 <a
                   key={link.href}
                   href={link.href}
                   onClick={(e) => handleFooterNav(e, link.href)}
-                  className="group relative py-1 transition-colors duration-150 hover:text-[#FF1744] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
+                  className="group relative inline-flex min-h-[44px] w-fit items-center py-1 whitespace-nowrap transition-colors duration-150 hover:text-[#FF1744] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744] lg:min-h-[34px]"
                 >
                   <span>{link.label}</span>
                   <span
                     aria-hidden="true"
-                    className="absolute right-0 bottom-0 left-0 h-[1.5px] origin-left scale-x-0 bg-[#FF1744] shadow-[0_0_8px_rgba(255,23,68,0.8)] transition-transform duration-200 group-hover:scale-x-100"
+                    className="absolute right-0 bottom-1.5 left-0 h-[1.5px] origin-left scale-x-0 bg-[#FF1744] shadow-[0_0_8px_rgba(255,23,68,0.8)] transition-transform duration-200 group-hover:scale-x-100 lg:bottom-0.5"
                   />
                 </a>
               ))}
             </nav>
+          </div>
 
+          {/* RIGHT: Official Poster Trigger + Instagram & Location Links */}
+          <div className="flex flex-col gap-5 lg:items-end lg:justify-self-end">
             <motion.button
               type="button"
               onClick={onOpenPoster}

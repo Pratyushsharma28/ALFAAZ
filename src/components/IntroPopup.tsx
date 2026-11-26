@@ -263,7 +263,7 @@ export function IntroPopup({
                 : { duration: 0.72, ease: CINEMATIC_EASE }
             }
             onClick={(e) => e.stopPropagation()}
-            className="relative z-10 flex max-h-full w-full max-w-[660px] flex-col items-center justify-center gap-4 sm:gap-5"
+            className="relative z-10 my-auto flex w-full max-w-[660px] flex-col items-center justify-center gap-4 sm:gap-5"
           >
             {/* Centered Poster with Subtle Floating Effect after appearing */}
             <motion.div
@@ -357,7 +357,7 @@ export function IntroPopup({
                     />
                   ))}
                 </div>
-                <span className="font-mono-num text-[10px] tracking-[0.22em] text-[#EAE7E0]/65 uppercase transition-colors group-hover:text-[#EAE7E0]">
+                <span className="font-mono-num text-[10px] tracking-[0.22em] text-[#EAE7E0]/75 uppercase transition-colors group-hover:text-[#EAE7E0]">
                   Sing
                 </span>
               </button>
@@ -408,7 +408,7 @@ export function IntroPopup({
                     </motion.span>
                   </AnimatePresence>
                 </div>
-                <span className="font-mono-num text-[10px] tracking-[0.22em] text-[#EAE7E0]/65 uppercase transition-colors group-hover:text-[#EAE7E0]">
+                <span className="font-mono-num text-[10px] tracking-[0.22em] text-[#EAE7E0]/75 uppercase transition-colors group-hover:text-[#EAE7E0]">
                   Poetry
                 </span>
               </button>
@@ -485,7 +485,7 @@ export function IntroPopup({
                     />
                   </svg>
                 </div>
-                <span className="font-mono-num text-[10px] tracking-[0.22em] text-[#EAE7E0]/65 uppercase transition-colors group-hover:text-[#EAE7E0]">
+                <span className="font-mono-num text-[10px] tracking-[0.22em] text-[#EAE7E0]/75 uppercase transition-colors group-hover:text-[#EAE7E0]">
                   Dance
                 </span>
               </button>

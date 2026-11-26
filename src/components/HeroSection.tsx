@@ -8,6 +8,7 @@ import {
   OFFICIAL_GOOGLE_FORM_URL,
   scrollToSection,
   SectionDividerLine,
+  useIsCompactOrTouch,
 } from './MotionPrimitives';
 
 interface HeroSectionProps {
@@ -16,6 +17,7 @@ interface HeroSectionProps {
 
 export function HeroSection({ onOpenPoster }: HeroSectionProps) {
   const shouldReduceMotion = useReducedMotion();
+  const isCompactOrTouch = useIsCompactOrTouch();
   const [unfilteredHovered, setUnfilteredHovered] = useState(false);
   const [unfilteredTapActive, setUnfilteredTapActive] = useState(false);
   const tapTimeoutRef = useRef<number | null>(null);
@@ -70,7 +72,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
             ? undefined
             : { duration: 12, repeat: Infinity, ease: 'easeInOut' }
         }
-        className="pointer-events-none absolute -bottom-24 left-[10%] h-72 w-72 rounded-full bg-[#D500F9]/15 blur-3xl"
+        className="pointer-events-none absolute -bottom-24 left-[10%] hidden h-72 w-72 rounded-full bg-[#D500F9]/15 blur-3xl md:block"
       />
       <motion.div
         aria-hidden="true"
@@ -84,7 +86,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
             ? undefined
             : { duration: 14, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }
         }
-        className="pointer-events-none absolute top-16 right-[4%] h-64 w-64 rounded-full bg-[#00E5FF]/14 blur-3xl"
+        className="pointer-events-none absolute top-16 right-[4%] hidden h-64 w-64 rounded-full bg-[#00E5FF]/14 blur-3xl md:block"
       />
       <AmbientNeonParticles />
 
@@ -130,7 +132,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
             <span aria-hidden="true">·</span>
             <span>4:00 PM – 9:00 PM</span>
           </div>
-          <span className="text-[#EAE7E0]/65">Social and Cultural Team, Quad AI</span>
+          <span className="text-[#EAE7E0]/75">Social and Cultural Team, Quad AI</span>
         </motion.div>
         <SectionDividerLine />
 
@@ -307,7 +309,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
                   maxTilt={4}
                   className="cursor-pointer border border-[#EAE7E0]/12 bg-[#070709]/85 p-3 transition-colors hover:border-[#C8F36B]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8F36B]"
                 >
-                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/60 uppercase">
+                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/75 uppercase">
                     1st Prize
                   </span>
                   <span className="font-mono-num relative z-10 mt-1 block text-base font-semibold text-[#C8F36B]">
@@ -324,7 +326,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
                   maxTilt={4}
                   className="cursor-pointer border border-[#EAE7E0]/12 bg-[#070709]/85 p-3 transition-colors hover:border-[#FF1744]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
                 >
-                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/60 uppercase">
+                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/75 uppercase">
                     Passes From
                   </span>
                   <span className="font-mono-num relative z-10 mt-1 block text-base font-semibold text-[#EAE7E0]">
@@ -341,7 +343,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
                   maxTilt={4}
                   className="cursor-pointer border border-[#EAE7E0]/12 bg-[#070709]/85 p-3 transition-colors hover:border-[#00E5FF]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
                 >
-                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/60 uppercase">
+                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/75 uppercase">
                     Every Entry
                   </span>
                   <span className="relative z-10 mt-1 block text-sm font-semibold text-[#EAE7E0]">
@@ -389,7 +391,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
               {/* Main Performer Stage Frame */}
               <div className="group relative z-10 min-h-[360px] flex-1 overflow-hidden bg-[#050505] sm:min-h-[440px]">
                 <motion.img
-                  style={shouldReduceMotion ? undefined : { y: imageParallaxY }}
+                  style={shouldReduceMotion || isCompactOrTouch ? undefined : { y: imageParallaxY }}
                   src="/src/assets/images/hero_indian_concert_stage_1795714855811.jpg"
                   alt="Young Indian performer singing confidently into a stage microphone under crimson concert spotlights"
                   referrerPolicy="no-referrer"
@@ -403,7 +405,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
                 />
 
                 {/* Top-Left Editorial Stage Tag */}
-                <div className="neon-badge-pulse absolute top-4 left-4 border border-[#FF1744]/45 bg-[#050505]/80 px-3.5 py-2 backdrop-blur-xs shadow-[0_0_14px_rgba(255,23,68,0.25)]">
+                <div className="absolute top-4 left-4 border border-[#FF1744]/45 bg-[#050505]/85 px-3.5 py-2 backdrop-blur-xs shadow-[0_0_14px_rgba(255,23,68,0.22)]">
                   <p className="font-mono-num text-[11px] tracking-widest text-[#FF1744] uppercase">
                     Main Stage · Quad AI
                   </p>
