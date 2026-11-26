@@ -1,0 +1,213 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: 'Big Shoulders Display', system-ui, sans-serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    font-family: var(--font-sans);
+    background-color: #050505;
+    color: #eae7e0;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-mono-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Subtle 35mm film grain overlay */
+.grain-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+@keyframes grain-shift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(-1.5%, 1%, 0); }
+  50% { transform: translate3d(1%, -1.5%, 0); }
+  75% { transform: translate3d(-1%, -1%, 0); }
+}
+
+.grain-animated {
+  animation: grain-shift 7s steps(4) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain-animated {
+    animation: none;
+  }
+}
+
+/* Dark underground stage surface (#050505) with subtle neon ambient gradients */
+.underground-surface {
+  background-color: #050505;
+  background-image:
+    radial-gradient(circle at 82% 18%, rgba(255, 23, 68, 0.11), transparent 46%),
+    radial-gradient(circle at 14% 78%, rgba(213, 0, 249, 0.06), transparent 42%),
+    radial-gradient(circle at 52% 92%, rgba(0, 229, 255, 0.045), transparent 44%),
+    linear-gradient(to right, rgba(234, 231, 224, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(234, 231, 224, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 64px 64px, 64px 64px;
+}
+
+/* Poster-inspired micro checkerboard motif */
+.poster-checker {
+  background-image:
+    linear-gradient(45deg, #eae7e0 25%, transparent 25%),
+    linear-gradient(-45deg, #eae7e0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #eae7e0 75%),
+    linear-gradient(-45deg, transparent 75%, #eae7e0 75%);
+  background-size: 14px 14px;
+  background-position: 0 0, 0 7px, 7px -7px, -7px 0;
+}
+
+/* Diagonal graphic polygons */
+.diagonal-slash-left {
+  clip-path: polygon(0 0, 100% 12%, 88% 100%, 0 88%);
+}
+
+.diagonal-slash-right {
+  clip-path: polygon(14% 0, 100% 0, 100% 100%, 0 84%);
+}
+
+/* Selective neon typography highlights (used sparingly for key display words) */
+.neon-text-crimson {
+  text-shadow: 0 0 22px rgba(255, 23, 68, 0.42), 0 0 6px rgba(255, 23, 68, 0.25);
+}
+
+.neon-text-purple {
+  text-shadow: 0 0 18px rgba(213, 0, 249, 0.42), 0 0 5px rgba(213, 0, 249, 0.25);
+}
+
+.neon-text-cyan {
+  text-shadow: 0 0 18px rgba(0, 229, 255, 0.42), 0 0 5px rgba(0, 229, 255, 0.25);
+}
+
+/* Subtle CTA breathing glow (restrained, never harsh flashing) */
+@keyframes neon-cta-breathe {
+  0%, 100% {
+    box-shadow: 0 0 18px rgba(255, 23, 68, 0.36), 0 0 4px rgba(255, 23, 68, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(255, 23, 68, 0.62), 0 0 10px rgba(255, 23, 68, 0.38);
+  }
+}
+
+.neon-cta-breathe {
+  animation: neon-cta-breathe 3.4s ease-in-out infinite;
+}
+
+@keyframes neon-badge-pulse {
+  0%, 100% {
+    opacity: 0.92;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.15);
+  }
+}
+
+.neon-badge-pulse {
+  animation: neon-badge-pulse 3s ease-in-out infinite;
+}
+
+@keyframes ticket-notch-glow {
+  0%, 100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.ticket-notch-glow {
+  animation: ticket-notch-glow 3.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neon-cta-breathe,
+  .neon-badge-pulse,
+  .ticket-notch-glow,
+  .marquee-ltr-about,
+  .marquee-ltr-countdown,
+  .unfiltered-rainbow-active {
+    animation: none;
+  }
+}
+
+/* Seamless Left-to-Right Marquee Track */
+@keyframes marquee-ltr {
+  0% {
+    transform: translate3d(-50%, 0, 0);
+  }
+  100% {
+    transform: translate3d(0%, 0, 0);
+  }
+}
+
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 5%, #000 95%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 5%, #000 95%, transparent 100%);
+}
+
+.marquee-ltr-about {
+  display: flex;
+  width: max-content;
+  animation: marquee-ltr 26s linear infinite;
+  will-change: transform;
+}
+
+.marquee-ltr-countdown {
+  display: flex;
+  width: max-content;
+  animation: marquee-ltr 24s linear infinite;
+  will-change: transform;
+}
+
+/* Cursor-triggered Multicolor Spectrum Text Flow for UNFILTERED */
+@keyframes rainbow-text-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
+}
+
+.unfiltered-rainbow-text {
+  background-image: linear-gradient(
+    90deg,
+    #ff1744 0%,
+    #dc143c 10%,
+    #ff6d00 20%,
+    #ffd600 30%,
+    #c8f36b 40%,
+    #00e676 50%,
+    #00e5ff 60%,
+    #2979ff 70%,
+    #d500f9 80%,
+    #ff00aa 90%,
+    #ff1744 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.unfiltered-rainbow-active {
+  animation: rainbow-text-flow 3.2s linear infinite;
+}
+

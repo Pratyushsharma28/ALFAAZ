@@ -1,0 +1,6 @@
+{
+  "name": "ALFAAZ — UNFILTERED",
+  "description": "An unfiltered spoken word, poetry, and live storytelling experience.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
