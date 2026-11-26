@@ -73,7 +73,7 @@ export function PrizePoolSection() {
             ? undefined
             : { duration: 12.5, repeat: Infinity, ease: 'easeInOut' }
         }
-        className="pointer-events-none absolute top-10 right-[10%] h-72 w-72 rounded-full bg-[#FF1744]/16 blur-3xl"
+        className="pointer-events-none absolute top-10 right-[10%] hidden h-72 w-72 rounded-full bg-[#FF1744]/16 blur-3xl md:block"
       />
       <AmbientNeonParticles />
 
@@ -111,23 +111,27 @@ export function PrizePoolSection() {
             >
               <InteractiveNeonCard
                 accentColor={prize.highlight ? '#FF1744' : '#C8F36B'}
-                hoverLift={-12}
-                hoverScale={1.03}
-                maxTilt={6}
-                floatAmplitude={prize.highlight ? 6 : 4}
+                hoverLift={-10}
+                hoverScale={1.02}
+                maxTilt={4.5}
+                floatAmplitude={prize.highlight ? 4 : 2.5}
                 floatDuration={5 + idx * 0.65}
                 floatDelay={idx * 0.35}
                 className={`flex flex-col justify-between border p-8 transition-colors duration-200 ${
                   prize.highlight
-                    ? 'border-[#FF1744] bg-[#050505] text-[#EAE7E0] shadow-[0_0_32px_rgba(255,23,68,0.28)]'
+                    ? 'border-[#FF1744] bg-[#050505] text-[#EAE7E0] shadow-[0_0_28px_rgba(255,23,68,0.24)]'
                     : 'border-[#EAE7E0]/20 bg-[#050505]/90 text-[#EAE7E0] hover:border-[#C8F36B]/55'
                 }`}
               >
                 <div className="relative z-10 flex items-center justify-between text-xs tracking-widest uppercase">
-                  <span className="neon-badge-pulse font-mono-num text-[#FF1744]">
+                  <span
+                    className={`font-mono-num text-[#FF1744] ${
+                      prize.highlight ? 'neon-badge-pulse' : ''
+                    }`}
+                  >
                     Rank {prize.rank}
                   </span>
-                  <span className="text-[#EAE7E0]/70">{prize.note}</span>
+                  <span className="text-[#EAE7E0]/75">{prize.note}</span>
                 </div>
 
                 <div className="relative z-10 my-8">
@@ -165,7 +169,7 @@ export function PrizePoolSection() {
             <p className="relative z-10 font-display text-2xl font-extrabold tracking-wide text-[#EAE7E0] uppercase sm:text-3xl">
               Every Registered Participant Receives A Participation Certificate &amp; Goodies.
             </p>
-            <span className="neon-badge-pulse relative z-10 font-mono-num text-xs tracking-widest text-[#C8F36B] uppercase whitespace-nowrap shrink-0">
+            <span className="relative z-10 font-mono-num text-xs tracking-widest text-[#C8F36B] uppercase whitespace-nowrap shrink-0">
               All Participants · 18 Dec 2026
             </span>
           </InteractiveNeonCard>

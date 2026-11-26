@@ -144,7 +144,7 @@ export function CategoriesSection() {
             ? undefined
             : { duration: 13.5, repeat: Infinity, ease: 'easeInOut' }
         }
-        className="pointer-events-none absolute bottom-12 left-8 h-72 w-72 rounded-full bg-[#00E5FF]/12 blur-3xl"
+        className="pointer-events-none absolute bottom-12 left-8 hidden h-72 w-72 rounded-full bg-[#00E5FF]/12 blur-3xl md:block"
       />
       <motion.div
         aria-hidden="true"
@@ -158,7 +158,7 @@ export function CategoriesSection() {
             ? undefined
             : { duration: 15, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }
         }
-        className="pointer-events-none absolute top-1/2 right-12 h-72 w-72 rounded-full bg-[#D500F9]/12 blur-3xl"
+        className="pointer-events-none absolute top-1/2 right-12 hidden h-72 w-72 rounded-full bg-[#D500F9]/12 blur-3xl md:block"
       />
       <AmbientNeonParticles />
 
@@ -206,9 +206,9 @@ export function CategoriesSection() {
                   tabIndex={0}
                   ariaPressed={isSelected}
                   accentColor={category.accentHex}
-                  hoverLift={-12}
-                  hoverScale={1.03}
-                  maxTilt={6}
+                  hoverLift={-10}
+                  hoverScale={1.02}
+                  maxTilt={4.5}
                   onClick={() => setActiveId(category.id)}
                   onMouseEnter={() => setHoveredCard(category.id)}
                   onMouseLeave={() => setHoveredCard(null)}
@@ -225,14 +225,14 @@ export function CategoriesSection() {
                     />
                     <div
                       aria-hidden="true"
-                      className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/35 to-transparent"
+                      className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/45 to-transparent"
                     />
 
                     {/* Index Tag in Discipline Neon */}
                     <div
-                      className={`neon-badge-pulse absolute top-0 left-0 px-3.5 py-2 font-mono-num text-xs font-semibold tracking-widest uppercase transition-all duration-200 ${
+                      className={`absolute top-0 left-0 px-3.5 py-2 font-mono-num text-xs font-semibold tracking-widest uppercase transition-all duration-200 ${
                         isSelected
-                          ? category.badgeActiveClass
+                          ? `neon-badge-pulse ${category.badgeActiveClass}`
                           : 'bg-[#050505]/85 text-[#EAE7E0] border-r border-b border-[#EAE7E0]/20'
                       }`}
                     >

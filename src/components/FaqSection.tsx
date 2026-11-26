@@ -84,8 +84,10 @@ export function FaqSection() {
                     }`}
                   >
                     <button
+                      id={`faq-trigger-${item.id}`}
                       type="button"
                       aria-expanded={isOpen}
+                      aria-controls={`faq-panel-${item.id}`}
                       onClick={() => setOpenId(isOpen ? '' : item.id)}
                       className="flex min-h-[64px] w-full cursor-pointer items-center justify-between gap-6 px-2 py-5 text-left transition-colors hover:text-[#FF1744] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
                     >
@@ -117,6 +119,9 @@ export function FaqSection() {
                     <AnimatePresence initial={false}>
                       {isOpen && (
                         <motion.div
+                          id={`faq-panel-${item.id}`}
+                          role="region"
+                          aria-labelledby={`faq-trigger-${item.id}`}
                           initial={
                             shouldReduceMotion
                               ? { opacity: 1 }

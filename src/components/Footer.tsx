@@ -49,7 +49,7 @@ export function Footer({ onOpenPoster }: FooterProps) {
             ? undefined
             : { duration: 14, repeat: Infinity, ease: 'easeInOut' }
         }
-        className="pointer-events-none absolute -bottom-16 left-8 h-64 w-64 rounded-full bg-[#D500F9]/14 blur-3xl"
+        className="pointer-events-none absolute -bottom-16 left-8 hidden h-64 w-64 rounded-full bg-[#D500F9]/14 blur-3xl md:block"
       />
 
       <div className="relative mx-auto max-w-[1440px] px-6 lg:px-10">
@@ -98,12 +98,69 @@ export function Footer({ onOpenPoster }: FooterProps) {
               />
               Reopen Official Poster
             </motion.button>
+
+            <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+              <motion.a
+                href="https://www.instagram.com/joinmyquad?utm_source=ig_web_button_share_sheet&dmpr=ZDNlZDc0MzIxNw=="
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Follow us on Instagram"
+                title="Follow us on Instagram"
+                whileHover={shouldReduceMotion ? undefined : { scale: 1.05, y: -2 }}
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+                transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
+                className="group inline-flex min-h-[44px] items-center gap-2.5 border border-[#EAE7E0]/20 bg-[#050505] px-4 py-2.5 font-mono-num text-xs font-semibold tracking-widest text-[#EAE7E0] uppercase transition-all duration-200 hover:border-[#D500F9] hover:text-[#D500F9] hover:shadow-[0_0_22px_rgba(213,0,249,0.48)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D500F9]"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 shrink-0 transition-all duration-200 group-hover:drop-shadow-[0_0_8px_rgba(213,0,249,0.85)]"
+                  aria-hidden="true"
+                >
+                  <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
+                  <circle cx="12" cy="12" r="4.25" />
+                  <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+                </svg>
+                <span>INSTAGRAM</span>
+              </motion.a>
+
+              <motion.a
+                href="https://maps.app.goo.gl/zeidDGL9ST8U6fer8"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Find the event location"
+                title="Find the event location"
+                whileHover={shouldReduceMotion ? undefined : { scale: 1.05, y: -2 }}
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+                transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
+                className="group inline-flex min-h-[44px] items-center gap-2.5 border border-[#EAE7E0]/20 bg-[#050505] px-4 py-2.5 font-mono-num text-xs font-semibold tracking-widest text-[#EAE7E0] uppercase transition-all duration-200 hover:border-[#00E5FF] hover:text-[#00E5FF] hover:shadow-[0_0_22px_rgba(0,229,255,0.48)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 shrink-0 transition-all duration-200 group-hover:drop-shadow-[0_0_8px_rgba(0,229,255,0.85)]"
+                  aria-hidden="true"
+                >
+                  <path d="M12 21.5s6.5-6.1 6.5-11.75a6.5 6.5 0 1 0-13 0C5.5 15.4 12 21.5 12 21.5Z" />
+                  <circle cx="12" cy="9.75" r="2.5" />
+                </svg>
+                <span>LOCATION</span>
+              </motion.a>
+            </div>
           </div>
         </RevealBlock>
 
         <SectionDividerLine />
 
-        <div className="mt-8 flex flex-col justify-between gap-4 text-xs text-[#EAE7E0]/60 sm:flex-row sm:items-center">
+        <div className="mt-8 flex flex-col justify-between gap-4 text-xs text-[#EAE7E0]/70 sm:flex-row sm:items-center">
           <p>Organised by Social and Cultural Team, Quad AI · Bengaluru</p>
           <p className="font-mono-num text-[#C8F36B]">No Rules. Just Raw Talent.</p>
         </div>

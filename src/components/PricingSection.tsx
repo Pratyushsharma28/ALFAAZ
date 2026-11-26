@@ -88,7 +88,7 @@ export function PricingSection() {
             ? undefined
             : { duration: 13, repeat: Infinity, ease: 'easeInOut' }
         }
-        className="pointer-events-none absolute top-20 -left-16 h-80 w-80 rounded-full bg-[#FF1744]/14 blur-3xl"
+        className="pointer-events-none absolute top-20 -left-16 hidden h-80 w-80 rounded-full bg-[#FF1744]/14 blur-3xl md:block"
       />
       <motion.div
         aria-hidden="true"
@@ -102,7 +102,7 @@ export function PricingSection() {
             ? undefined
             : { duration: 15, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }
         }
-        className="pointer-events-none absolute right-0 bottom-16 h-72 w-72 rounded-full bg-[#C8F36B]/10 blur-3xl"
+        className="pointer-events-none absolute right-0 bottom-16 hidden h-72 w-72 rounded-full bg-[#C8F36B]/10 blur-3xl md:block"
       />
 
       <div className="relative mx-auto max-w-[1440px] px-6 lg:px-10">
@@ -140,20 +140,17 @@ export function PricingSection() {
                 className="md:col-span-4"
               >
                 <InteractiveNeonCard
-                  role="button"
-                  tabIndex={0}
-                  ariaPressed={isSelected}
                   accentColor="#FF1744"
-                  hoverLift={-13}
-                  hoverScale={1.035}
-                  maxTilt={6}
-                  floatAmplitude={5}
+                  hoverLift={-10}
+                  hoverScale={1.02}
+                  maxTilt={4.5}
+                  floatAmplitude={3.5}
                   floatDuration={5.2 + idx * 0.7}
                   floatDelay={idx * 0.45}
                   onClick={() => setSelectedTier(tier.id)}
-                  className={`flex h-full cursor-pointer flex-col justify-between border p-7 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744] ${
+                  className={`flex h-full cursor-pointer flex-col justify-between border p-7 transition-colors duration-200 ${
                     isSelected
-                      ? 'border-[#FF1744] bg-[#0B0507] shadow-[0_0_32px_rgba(255,23,68,0.28)]'
+                      ? 'border-[#FF1744] bg-[#0B0507] shadow-[0_0_28px_rgba(255,23,68,0.24)]'
                       : 'border-[#EAE7E0]/20 bg-[#050505] hover:border-[#FF1744]/65'
                   }`}
                 >
@@ -169,19 +166,29 @@ export function PricingSection() {
                   )}
 
                   <div className="relative z-10">
-                    <div className="flex items-center justify-between text-xs tracking-widest uppercase">
-                      <span className="font-mono-num text-[#FF1744]">{tier.index}</span>
-                      <span className="text-[#EAE7E0]/60">{tier.scope}</span>
-                    </div>
+                    <button
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedTier(tier.id);
+                      }}
+                      className="w-full cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
+                    >
+                      <div className="flex items-center justify-between text-xs tracking-widest uppercase">
+                        <span className="font-mono-num text-[#FF1744]">{tier.index}</span>
+                        <span className="text-[#EAE7E0]/70">{tier.scope}</span>
+                      </div>
 
-                    <div className="mt-5 flex items-baseline justify-between gap-4 border-b border-[#EAE7E0]/15 pb-5">
-                      <h3 className="font-display text-4xl font-black tracking-tight text-[#EAE7E0] uppercase">
-                        {tier.name}
-                      </h3>
-                      <span className="font-display text-6xl font-black text-[#C8F36B] tabular-nums transition-transform duration-300 group-hover/neoncard:scale-105">
-                        {tier.price}
-                      </span>
-                    </div>
+                      <div className="mt-5 flex items-baseline justify-between gap-4 border-b border-[#EAE7E0]/15 pb-5">
+                        <h3 className="font-display text-4xl font-black tracking-tight text-[#EAE7E0] uppercase">
+                          {tier.name}
+                        </h3>
+                        <span className="font-display text-6xl font-black text-[#C8F36B] tabular-nums transition-transform duration-300 group-hover/neoncard:scale-105">
+                          {tier.price}
+                        </span>
+                      </div>
+                    </button>
 
                     <p className="mt-5 text-sm leading-relaxed text-[#EAE7E0]/80">
                       {tier.description}
@@ -231,10 +238,10 @@ export function PricingSection() {
             hoverLift={-8}
             hoverScale={1.015}
             maxTilt={3}
-            className="flex flex-col justify-between gap-6 border border-[#FF1744]/45 bg-[#090507] p-6 shadow-[0_0_32px_rgba(255,23,68,0.14)] sm:p-8 lg:flex-row lg:items-center"
+            className="flex flex-col justify-between gap-6 border border-[#FF1744]/45 bg-[#090507] p-6 shadow-[0_0_28px_rgba(255,23,68,0.14)] sm:p-8 lg:flex-row lg:items-center"
           >
             <div className="relative z-10">
-              <p className="neon-badge-pulse font-mono-num text-xs font-semibold tracking-widest text-[#FF1744] uppercase">
+              <p className="font-mono-num text-xs font-semibold tracking-widest text-[#FF1744] uppercase">
                 Official Google Form Registration
               </p>
               <h3 className="mt-1 font-display text-3xl font-black tracking-tight text-[#EAE7E0] uppercase sm:text-4xl">

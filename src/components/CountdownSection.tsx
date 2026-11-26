@@ -153,7 +153,7 @@ export function CountdownSection() {
             ? undefined
             : { duration: 12.5, repeat: Infinity, ease: 'easeInOut' }
         }
-        className="pointer-events-none absolute -top-12 left-[14%] h-72 w-72 rounded-full bg-[#FF1744]/16 blur-3xl"
+        className="pointer-events-none absolute -top-12 left-[14%] hidden h-72 w-72 rounded-full bg-[#FF1744]/16 blur-3xl md:block"
       />
       <motion.div
         aria-hidden="true"
@@ -167,7 +167,7 @@ export function CountdownSection() {
             ? undefined
             : { duration: 14.5, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }
         }
-        className="pointer-events-none absolute -bottom-16 right-[12%] h-72 w-72 rounded-full bg-[#00E5FF]/14 blur-3xl"
+        className="pointer-events-none absolute -bottom-16 right-[12%] hidden h-72 w-72 rounded-full bg-[#00E5FF]/14 blur-3xl md:block"
       />
       <motion.div
         aria-hidden="true"
@@ -181,14 +181,18 @@ export function CountdownSection() {
             ? undefined
             : { duration: 9, repeat: Infinity, ease: 'easeInOut' }
         }
-        className="pointer-events-none absolute top-1/2 left-1/2 h-64 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#D500F9]/14 blur-3xl"
+        className="pointer-events-none absolute top-1/2 left-1/2 hidden h-64 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#D500F9]/14 blur-3xl md:block"
       />
       <AmbientNeonParticles />
 
       <div className="relative mx-auto max-w-[1440px] px-6 pt-14 lg:px-10 lg:pt-20">
         <RevealBlock className="flex flex-col justify-between gap-4 pb-6 md:flex-row md:items-end">
           <div>
-            <p className="font-mono-num text-xs font-medium tracking-widest text-[#C8F36B] uppercase">
+            <p className="inline-flex items-center gap-2 font-mono-num text-xs font-medium tracking-widest text-[#C8F36B] uppercase">
+              <span
+                aria-hidden="true"
+                className="inline-block h-2 w-2 rounded-full bg-[#FF1744] shadow-[0_0_8px_rgba(255,23,68,0.85)]"
+              />
               Live Countdown · 18 December 2026 · IST
             </p>
             <h2 className="mt-2 font-display text-[clamp(2.75rem,5.5vw,4.75rem)] leading-[0.88] font-black tracking-tight text-[#EAE7E0] uppercase">
@@ -243,22 +247,22 @@ export function CountdownSection() {
                   >
                     <InteractiveNeonCard
                       accentColor={unit.accent}
-                      hoverLift={-10}
-                      hoverScale={1.03}
-                      maxTilt={5.5}
-                      floatAmplitude={unit.floatAmp}
+                      hoverLift={-8}
+                      hoverScale={1.02}
+                      maxTilt={4}
+                      floatAmplitude={3}
                       floatDuration={unit.floatDuration}
                       floatDelay={unit.floatDelay}
-                      className={`flex h-full flex-col items-center justify-center border px-4 py-6 text-center transition-colors duration-200 sm:px-6 sm:py-8 ${unit.borderClass}`}
+                      className={`flex h-full flex-col items-center justify-center border px-3 py-6 text-center transition-colors duration-200 sm:px-6 sm:py-8 ${unit.borderClass}`}
                     >
                       {/* Subtle neon corner accent top bar */}
                       <span
                         aria-hidden="true"
                         style={{
                           backgroundColor: unit.accent,
-                          boxShadow: `0 0 14px ${unit.accent}`,
+                          boxShadow: `0 0 10px ${unit.accent}99`,
                         }}
-                        className="neon-badge-pulse absolute top-0 right-6 left-6 h-[2px]"
+                        className="absolute top-0 right-6 left-6 h-[2px]"
                       />
 
                       <div className="relative z-10 flex min-h-[4.25rem] items-center justify-center overflow-hidden sm:min-h-[5.5rem]">
@@ -284,7 +288,7 @@ export function CountdownSection() {
                             style={{
                               textShadow: `0 0 22px ${unit.accent}55`,
                             }}
-                            className="font-display block text-[clamp(3.25rem,6vw,5.5rem)] leading-none font-black tracking-tight text-[#EAE7E0] tabular-nums"
+                            className="font-display block text-[clamp(2.75rem,11vw,5.25rem)] leading-none font-black tracking-tight text-[#EAE7E0] tabular-nums md:text-[clamp(3.25rem,5.5vw,5.25rem)]"
                           >
                             {valueStr}
                           </motion.span>
@@ -292,7 +296,7 @@ export function CountdownSection() {
                       </div>
 
                       <span
-                        className="neon-badge-pulse relative z-10 mt-3 font-mono-num text-[11px] font-semibold tracking-[0.25em] uppercase"
+                        className="relative z-10 mt-3 font-mono-num text-[11px] font-semibold tracking-[0.25em] uppercase"
                         style={{ color: unit.accent }}
                       >
                         {unit.label}

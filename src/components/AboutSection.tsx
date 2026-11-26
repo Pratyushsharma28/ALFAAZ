@@ -39,7 +39,7 @@ export function AboutSection() {
             ? undefined
             : { duration: 13, repeat: Infinity, ease: 'easeInOut' }
         }
-        className="pointer-events-none absolute right-0 bottom-0 h-80 w-80 rounded-full bg-[#D500F9]/14 blur-3xl"
+        className="pointer-events-none absolute right-0 bottom-0 hidden h-80 w-80 rounded-full bg-[#D500F9]/14 blur-3xl md:block"
       />
 
       <div className="relative mx-auto max-w-[1440px] px-6 lg:px-10">
@@ -188,7 +188,7 @@ export function AboutSection() {
             </InteractiveNeonCard>
 
             <div className="space-y-6 text-base leading-relaxed text-[#EAE7E0]/85 sm:text-lg">
-              <p className="first-letter:float-left first-letter:mr-3 first-letter:font-display first-letter:text-6xl first-letter:leading-[0.85] first-letter:font-black first-letter:text-[#FF1744]">
+              <p className="first-letter:float-left first-letter:mt-1 first-letter:mr-3 first-letter:font-display first-letter:text-6xl first-letter:leading-[0.82] first-letter:font-black first-letter:text-[#FF1744]">
                 ALFAAZ — UNFILTERED breaks out of sterile auditorium rules. Built for movers,
                 vocalists, and poets at Quad AI and across Bengaluru, the stage exists for raw
                 presence—where unrehearsed honesty hits harder than polished perfection.
@@ -213,16 +213,16 @@ export function AboutSection() {
               >
                 <InteractiveNeonCard
                   accentColor="#FF1744"
-                  hoverLift={-10}
-                  hoverScale={1.03}
-                  maxTilt={5.5}
+                  hoverLift={-8}
+                  hoverScale={1.02}
+                  maxTilt={4.5}
                   className="h-full border border-[#FF1744]/50 bg-[#140409] p-7 text-[#EAE7E0] shadow-[0_0_24px_rgba(255,23,68,0.14)]"
                 >
                   <div
                     aria-hidden="true"
                     className="pointer-events-none absolute -top-6 -right-6 h-20 w-20 rotate-12 bg-[#FF1744]/20 transition-transform duration-300 group-hover/neoncard:rotate-45 group-hover/neoncard:scale-125"
                   />
-                  <p className="neon-badge-pulse relative z-10 font-mono-num text-xs tracking-widest text-[#FF1744] uppercase">
+                  <p className="relative z-10 font-mono-num text-xs tracking-widest text-[#FF1744] uppercase">
                     For Every Performer
                   </p>
                   <p className="relative z-10 mt-2 font-display text-3xl font-black tracking-tight uppercase">
@@ -241,12 +241,12 @@ export function AboutSection() {
               >
                 <InteractiveNeonCard
                   accentColor="#00E5FF"
-                  hoverLift={-10}
-                  hoverScale={1.03}
-                  maxTilt={5.5}
+                  hoverLift={-8}
+                  hoverScale={1.02}
+                  maxTilt={4.5}
                   className="h-full border border-[#EAE7E0]/20 bg-[#050505] p-7 text-[#EAE7E0] transition-colors hover:border-[#00E5FF]/55"
                 >
-                  <p className="neon-badge-pulse relative z-10 font-mono-num text-xs tracking-widest text-[#C8F36B] uppercase">
+                  <p className="relative z-10 font-mono-num text-xs tracking-widest text-[#C8F36B] uppercase">
                     The Rulebook
                   </p>
                   <p className="relative z-10 mt-2 font-display text-3xl font-black tracking-tight uppercase">

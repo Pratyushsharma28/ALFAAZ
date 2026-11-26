@@ -1,4 +1,4 @@
-import { MouseEvent, PointerEvent, ReactNode, useRef, useState } from 'react';
+import { MouseEvent, PointerEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import {
   motion,
   useMotionTemplate,
@@ -14,6 +14,25 @@ export const EDITORIAL_EASE = [0.16, 1, 0.3, 1] as const;
 export const OFFICIAL_GOOGLE_FORM_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLSek8JttdFB7n_ppedqx_BXV4rSbIkWvIPpBKsenPG8nMUdfMw/viewform';
 
+/**
+ * Lightweight hook to detect coarse-pointer / small touch screens
+ * so idle decorative loops pause on mobile for locked 60 FPS battery-friendly scrolling.
+ */
+export function useIsCompactOrTouch(): boolean {
+  const [isCompact, setIsCompact] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 767px), (pointer: coarse)');
+    const update = () => setIsCompact(mq.matches);
+    update();
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
+
+  return isCompact;
+}
+
 interface RevealProps {
   children: ReactNode;
   className?: string;
@@ -25,7 +44,7 @@ export function RevealBlock({
   children,
   className = '',
   delay = 0,
-  yOffset = 20,
+  yOffset = 18,
 }: RevealProps) {
   const shouldReduceMotion = useReducedMotion();
 
@@ -38,7 +57,7 @@ export function RevealBlock({
       initial={{ opacity: 0, y: yOffset }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.12 }}
-      transition={{ duration: 0.58, delay, ease: EDITORIAL_EASE }}
+      transition={{ duration: 0.56, delay, ease: EDITORIAL_EASE }}
       className={className}
     >
       {children}
@@ -59,7 +78,7 @@ export function SectionDividerLine({ className = '' }: { className?: string }) {
       initial={{ scaleX: 0, opacity: 0.4 }}
       whileInView={{ scaleX: 1, opacity: 1 }}
       viewport={{ once: true, amount: 0.5 }}
-      transition={{ duration: 0.75, ease: EDITORIAL_EASE }}
+      transition={{ duration: 0.72, ease: EDITORIAL_EASE }}
       className={`h-px w-full origin-left bg-[#EAE7E0]/20 ${className}`}
     />
   );
@@ -69,18 +88,18 @@ export const staggerContainerVariants: Variants = {
   hidden: {},
   visible: {
     transition: {
-      staggerChildren: 0.11,
+      staggerChildren: 0.09,
     },
   },
 };
 
 export const staggerItemVariants: Variants = {
-  hidden: { opacity: 0, y: 24 },
+  hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.56,
+      duration: 0.52,
       ease: EDITORIAL_EASE,
     },
   },
@@ -116,19 +135,19 @@ export interface InteractiveNeonCardProps {
 
 /**
  * InteractiveNeonCard:
- * GPU-accelerated 3D cursor tilt, hover lift (-8px to -14px), slight scale-up,
- * shifting radial gradient spotlight, subtle diagonal light sweep sheen,
- * neon border glow, and optional staggered floating idle motion.
+ * Cohesive festival card primitive:
+ * - Desktop: GPU 3D cursor tilt, controlled hover lift, subtle scale, cursor spotlight & light sweep.
+ * - Mobile/Touch: disables idle float & mouse tilt, retains crisp tap feedback (whileTap).
  */
 export function InteractiveNeonCard({
   children,
   className = '',
   accentColor = '#FF1744',
-  hoverLift = -10,
-  hoverScale = 1.025,
-  maxTilt = 6,
+  hoverLift = -9,
+  hoverScale = 1.02,
+  maxTilt = 4.5,
   floatAmplitude = 0,
-  floatDuration = 5.4,
+  floatDuration = 5.6,
   floatDelay = 0,
   onClick,
   onMouseEnter,
@@ -138,27 +157,29 @@ export function InteractiveNeonCard({
   ariaPressed,
 }: InteractiveNeonCardProps) {
   const shouldReduceMotion = useReducedMotion();
+  const isCompactOrTouch = useIsCompactOrTouch();
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Normalized cursor coordinates in [-0.5, 0.5] and pixel coords for spotlight
+  const disablePointerTilt = Boolean(shouldReduceMotion || isCompactOrTouch);
+
   const normX = useMotionValue(0);
   const normY = useMotionValue(0);
   const spotX = useMotionValue(50);
   const spotY = useMotionValue(50);
 
-  const smoothNormX = useSpring(normX, { stiffness: 240, damping: 24, mass: 0.55 });
-  const smoothNormY = useSpring(normY, { stiffness: 240, damping: 24, mass: 0.55 });
-  const smoothSpotX = useSpring(spotX, { stiffness: 220, damping: 26 });
-  const smoothSpotY = useSpring(spotY, { stiffness: 220, damping: 26 });
+  const smoothNormX = useSpring(normX, { stiffness: 250, damping: 26, mass: 0.5 });
+  const smoothNormY = useSpring(normY, { stiffness: 250, damping: 26, mass: 0.5 });
+  const smoothSpotX = useSpring(spotX, { stiffness: 220, damping: 28 });
+  const smoothSpotY = useSpring(spotY, { stiffness: 220, damping: 28 });
 
   const rotateX = useTransform(smoothNormY, [-0.5, 0.5], [maxTilt, -maxTilt]);
   const rotateY = useTransform(smoothNormX, [-0.5, 0.5], [-maxTilt, maxTilt]);
 
-  const spotlightBg = useMotionTemplate`radial-gradient(380px circle at ${smoothSpotX}% ${smoothSpotY}%, ${accentColor}24, ${accentColor}09 42%, transparent 72%)`;
+  const spotlightBg = useMotionTemplate`radial-gradient(360px circle at ${smoothSpotX}% ${smoothSpotY}%, ${accentColor}1E, ${accentColor}08 42%, transparent 72%)`;
 
   const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (shouldReduceMotion || e.pointerType !== 'mouse' || !cardRef.current) return;
+    if (disablePointerTilt || e.pointerType !== 'mouse' || !cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
 
@@ -172,6 +193,7 @@ export function InteractiveNeonCard({
   };
 
   const handlePointerEnter = (e: MouseEvent<HTMLDivElement>) => {
+    if (isCompactOrTouch) return;
     setIsHovered(true);
     onMouseEnter?.();
     if (cardRef.current && !shouldReduceMotion) {
@@ -192,7 +214,8 @@ export function InteractiveNeonCard({
     onMouseLeave?.();
   };
 
-  const shouldFloat = !shouldReduceMotion && floatAmplitude > 0 && !isHovered;
+  const enableFloat = !shouldReduceMotion && !isCompactOrTouch && floatAmplitude > 0;
+  const shouldFloat = enableFloat && !isHovered;
 
   const innerCard = (
     <motion.div
@@ -202,7 +225,7 @@ export function InteractiveNeonCard({
       aria-pressed={ariaPressed}
       onClick={onClick}
       onKeyDown={
-        onClick
+        role === 'button' && onClick
           ? (e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -215,7 +238,7 @@ export function InteractiveNeonCard({
       onMouseEnter={handlePointerEnter}
       onMouseLeave={handlePointerLeave}
       style={
-        shouldReduceMotion
+        disablePointerTilt
           ? undefined
           : {
               transformPerspective: 1000,
@@ -225,12 +248,12 @@ export function InteractiveNeonCard({
             }
       }
       whileHover={
-        shouldReduceMotion
+        disablePointerTilt
           ? undefined
           : {
               y: hoverLift,
               scale: hoverScale,
-              transition: { duration: 0.28, ease: EDITORIAL_EASE },
+              transition: { duration: 0.26, ease: EDITORIAL_EASE },
             }
       }
       whileTap={
@@ -241,44 +264,46 @@ export function InteractiveNeonCard({
               transition: { duration: 0.12 },
             }
       }
-      className={`group/neoncard relative overflow-hidden will-change-transform ${className}`}
+      className={`group/neoncard relative overflow-hidden ${
+        disablePointerTilt ? '' : 'will-change-transform'
+      } ${className}`}
     >
-      {/* Shifting Cursor Radial Gradient Spotlight */}
-      {!shouldReduceMotion && (
+      {/* Shifting Cursor Radial Gradient Spotlight (Desktop hover only) */}
+      {!disablePointerTilt && (
         <motion.div
           aria-hidden="true"
           style={{ background: spotlightBg }}
           animate={{ opacity: isHovered ? 1 : 0 }}
-          transition={{ duration: 0.28, ease: EDITORIAL_EASE }}
+          transition={{ duration: 0.26, ease: EDITORIAL_EASE }}
           className="pointer-events-none absolute inset-0 z-0"
         />
       )}
 
       {/* Subtle Diagonal Light Sweep across the card on hover */}
-      {!shouldReduceMotion && (
+      {!disablePointerTilt && (
         <motion.div
           aria-hidden="true"
           initial={{ x: '-130%', opacity: 0 }}
           animate={
             isHovered
-              ? { x: '130%', opacity: [0, 0.55, 0] }
+              ? { x: '130%', opacity: [0, 0.48, 0] }
               : { x: '-130%', opacity: 0 }
           }
-          transition={{ duration: 0.72, ease: EDITORIAL_EASE }}
+          transition={{ duration: 0.68, ease: EDITORIAL_EASE }}
           style={{
-            background: `linear-gradient(108deg, transparent 22%, ${accentColor}26 46%, rgba(234,231,224,0.16) 50%, ${accentColor}22 54%, transparent 78%)`,
+            background: `linear-gradient(108deg, transparent 22%, ${accentColor}24 46%, rgba(234,231,224,0.14) 50%, ${accentColor}20 54%, transparent 78%)`,
           }}
           className="pointer-events-none absolute inset-y-0 left-0 z-20 w-[75%]"
         />
       )}
 
-      {/* Animated Neon Perimeter Glow Layer on Hover */}
-      {!shouldReduceMotion && (
+      {/* Controlled Neon Perimeter Glow Layer on Hover */}
+      {!disablePointerTilt && (
         <div
           aria-hidden="true"
           style={{
             boxShadow: isHovered
-              ? `inset 0 0 0 1px ${accentColor}80, 0 22px 48px -12px ${accentColor}35`
+              ? `inset 0 0 0 1px ${accentColor}75, 0 20px 44px -14px ${accentColor}30`
               : 'inset 0 0 0 1px transparent',
           }}
           className="pointer-events-none absolute inset-0 z-20 transition-all duration-300"
@@ -289,14 +314,10 @@ export function InteractiveNeonCard({
     </motion.div>
   );
 
-  if (floatAmplitude > 0 && !shouldReduceMotion) {
+  if (enableFloat) {
     return (
       <motion.div
-        animate={
-          shouldFloat
-            ? { y: [0, -floatAmplitude, 0] }
-            : { y: 0 }
-        }
+        animate={shouldFloat ? { y: [0, -floatAmplitude, 0] } : { y: 0 }}
         transition={
           shouldFloat
             ? {
@@ -305,7 +326,7 @@ export function InteractiveNeonCard({
                 ease: 'easeInOut',
                 delay: floatDelay,
               }
-            : { duration: 0.25, ease: EDITORIAL_EASE }
+            : { duration: 0.24, ease: EDITORIAL_EASE }
         }
         className="h-full"
       >
@@ -328,11 +349,9 @@ interface AmbientParticle {
 }
 
 const DEFAULT_PARTICLES: AmbientParticle[] = [
-  { left: '12%', top: '24%', size: 3, color: '#FF1744', duration: 7.2, delay: 0, driftY: -18 },
-  { left: '38%', top: '68%', size: 2.5, color: '#00E5FF', duration: 8.6, delay: 1.1, driftY: -22 },
-  { left: '66%', top: '22%', size: 3, color: '#D500F9', duration: 9.1, delay: 0.6, driftY: -16 },
-  { left: '86%', top: '58%', size: 2.5, color: '#C8F36B', duration: 7.8, delay: 1.8, driftY: -20 },
-  { left: '52%', top: '82%', size: 2, color: '#FF1744', duration: 8.4, delay: 0.4, driftY: -14 },
+  { left: '14%', top: '26%', size: 2.5, color: '#FF1744', duration: 8.2, delay: 0, driftY: -16 },
+  { left: '64%', top: '20%', size: 2.5, color: '#D500F9', duration: 9.4, delay: 0.8, driftY: -14 },
+  { left: '84%', top: '64%', size: 2.5, color: '#00E5FF', duration: 8.8, delay: 1.5, driftY: -18 },
 ];
 
 export function AmbientNeonParticles({
@@ -341,7 +360,8 @@ export function AmbientNeonParticles({
   particles?: AmbientParticle[];
 }) {
   const shouldReduceMotion = useReducedMotion();
-  if (shouldReduceMotion) return null;
+  const isCompactOrTouch = useIsCompactOrTouch();
+  if (shouldReduceMotion || isCompactOrTouch) return null;
 
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -354,12 +374,11 @@ export function AmbientNeonParticles({
             width: `${p.size}px`,
             height: `${p.size}px`,
             backgroundColor: p.color,
-            boxShadow: `0 0 10px ${p.color}`,
+            boxShadow: `0 0 8px ${p.color}`,
           }}
           animate={{
             y: [0, p.driftY, 0],
-            opacity: [0.15, 0.55, 0.15],
-            scale: [1, 1.35, 1],
+            opacity: [0.12, 0.45, 0.12],
           }}
           transition={{
             duration: p.duration,

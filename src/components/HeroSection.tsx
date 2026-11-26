@@ -6,6 +6,7 @@ import {
   EDITORIAL_EASE,
   InteractiveNeonCard,
   OFFICIAL_GOOGLE_FORM_URL,
+  scrollToSection,
   SectionDividerLine,
 } from './MotionPrimitives';
 
@@ -110,7 +111,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
         className="pointer-events-none absolute right-[8%] bottom-0 hidden h-[65%] w-[2px] origin-bottom -skew-x-12 bg-[#00E5FF]/25 lg:block"
       />
 
-      <div className="relative mx-auto max-w-[1440px] px-6 pt-8 pb-14 lg:px-10 lg:pt-10 lg:pb-20">
+      <div className="relative mx-auto max-w-[1440px] px-6 pt-6 pb-14 lg:px-10 lg:pt-8 lg:pb-16">
         {/* Top Metadata Ledger */}
         <motion.div
           initial={shouldReduceMotion ? false : { opacity: 0, y: -8 }}
@@ -134,7 +135,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
         <SectionDividerLine />
 
         {/* Balanced 2-Column Editorial Hero Split (Layout & Images 100% Preserved) */}
-        <div className="mt-8 grid grid-cols-1 items-stretch gap-10 lg:mt-10 lg:grid-cols-12 lg:gap-10 xl:gap-14">
+        <div className="mt-7 grid grid-cols-1 items-stretch gap-10 lg:mt-8 lg:grid-cols-12 lg:gap-10 xl:gap-14">
           {/* LEFT COLUMN: Monumental Typography, Selective Neon Highlighting & Primary CTAs */}
           <div className="flex flex-col justify-between lg:col-span-6 lg:py-2">
             <div>
@@ -294,16 +295,19 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
                 </motion.button>
               </div>
 
-              {/* Interactive Quick Event Coordinate Cards */}
-              <div className="mt-6 grid grid-cols-3 gap-3 border-t border-[#EAE7E0]/10 pt-5 text-xs sm:gap-4">
+              {/* Interactive Quick Event Coordinate Cards — responsive 1-col on ultra-narrow, 3-col on sm+ */}
+              <div className="mt-6 grid grid-cols-1 gap-2.5 border-t border-[#EAE7E0]/10 pt-5 text-xs sm:grid-cols-3 sm:gap-4">
                 <InteractiveNeonCard
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => scrollToSection('#prizes', shouldReduceMotion)}
                   accentColor="#C8F36B"
                   hoverLift={-6}
-                  hoverScale={1.03}
-                  maxTilt={5}
-                  className="border border-[#EAE7E0]/12 bg-[#070709]/80 p-3 transition-colors hover:border-[#C8F36B]/55"
+                  hoverScale={1.02}
+                  maxTilt={4}
+                  className="cursor-pointer border border-[#EAE7E0]/12 bg-[#070709]/85 p-3 transition-colors hover:border-[#C8F36B]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8F36B]"
                 >
-                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/55 uppercase">
+                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/60 uppercase">
                     1st Prize
                   </span>
                   <span className="font-mono-num relative z-10 mt-1 block text-base font-semibold text-[#C8F36B]">
@@ -311,13 +315,16 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
                   </span>
                 </InteractiveNeonCard>
                 <InteractiveNeonCard
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => scrollToSection('#passes', shouldReduceMotion)}
                   accentColor="#FF1744"
                   hoverLift={-6}
-                  hoverScale={1.03}
-                  maxTilt={5}
-                  className="border border-[#EAE7E0]/12 bg-[#070709]/80 p-3 transition-colors hover:border-[#FF1744]/55"
+                  hoverScale={1.02}
+                  maxTilt={4}
+                  className="cursor-pointer border border-[#EAE7E0]/12 bg-[#070709]/85 p-3 transition-colors hover:border-[#FF1744]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
                 >
-                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/55 uppercase">
+                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/60 uppercase">
                     Passes From
                   </span>
                   <span className="font-mono-num relative z-10 mt-1 block text-base font-semibold text-[#EAE7E0]">
@@ -325,13 +332,16 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
                   </span>
                 </InteractiveNeonCard>
                 <InteractiveNeonCard
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => scrollToSection('#about', shouldReduceMotion)}
                   accentColor="#00E5FF"
                   hoverLift={-6}
-                  hoverScale={1.03}
-                  maxTilt={5}
-                  className="border border-[#EAE7E0]/12 bg-[#070709]/80 p-3 transition-colors hover:border-[#00E5FF]/55"
+                  hoverScale={1.02}
+                  maxTilt={4}
+                  className="cursor-pointer border border-[#EAE7E0]/12 bg-[#070709]/85 p-3 transition-colors hover:border-[#00E5FF]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
                 >
-                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/55 uppercase">
+                  <span className="relative z-10 block tracking-widest text-[#EAE7E0]/60 uppercase">
                     Every Entry
                   </span>
                   <span className="relative z-10 mt-1 block text-sm font-semibold text-[#EAE7E0]">
@@ -353,16 +363,20 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
             }
             className="relative flex flex-col lg:col-span-6"
           >
-            {/* Subtle ambient neon crimson glow behind right showcase */}
+            {/* Sophisticated layered crimson & purple stage halo behind right showcase */}
             <motion.div
               aria-hidden="true"
-              animate={shouldReduceMotion ? { opacity: 0.22 } : { opacity: [0.18, 0.32, 0.18] }}
+              animate={shouldReduceMotion ? { opacity: 0.24 } : { opacity: [0.18, 0.28, 0.18] }}
               transition={
                 shouldReduceMotion
                   ? undefined
-                  : { duration: 6.5, repeat: Infinity, ease: 'easeInOut' }
+                  : { duration: 7, repeat: Infinity, ease: 'easeInOut' }
               }
-              className="pointer-events-none absolute -inset-3 hidden bg-[#FF1744] blur-2xl lg:block"
+              style={{
+                background:
+                  'radial-gradient(circle at 55% 45%, rgba(255, 23, 68, 0.65) 0%, rgba(213, 0, 249, 0.22) 55%, transparent 78%)',
+              }}
+              className="pointer-events-none absolute -inset-4 hidden blur-2xl lg:block"
             />
 
             <InteractiveNeonCard
@@ -370,7 +384,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
               hoverLift={-8}
               hoverScale={1.015}
               maxTilt={3.5}
-              className="flex h-full min-h-[420px] flex-col justify-between border border-[#EAE7E0]/20 bg-[#050505] p-2.5 shadow-[0_24px_80px_rgba(255,23,68,0.28)] sm:min-h-[500px] lg:min-h-[600px]"
+              className="flex h-full min-h-[420px] flex-col justify-between border border-[#EAE7E0]/20 bg-[#050505] p-2.5 shadow-[0_24px_80px_rgba(255,23,68,0.24)] sm:min-h-[500px] lg:min-h-[580px]"
             >
               {/* Main Performer Stage Frame */}
               <div className="group relative z-10 min-h-[360px] flex-1 overflow-hidden bg-[#050505] sm:min-h-[440px]">

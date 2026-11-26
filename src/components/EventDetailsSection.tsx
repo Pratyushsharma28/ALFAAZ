@@ -68,7 +68,7 @@ export function EventDetailsSection() {
             ? undefined
             : { duration: 14, repeat: Infinity, ease: 'easeInOut' }
         }
-        className="pointer-events-none absolute top-24 right-0 h-72 w-72 rounded-full bg-[#FF1744]/14 blur-3xl"
+        className="pointer-events-none absolute top-24 right-0 hidden h-72 w-72 rounded-full bg-[#FF1744]/14 blur-3xl md:block"
       />
       <motion.div
         aria-hidden="true"
@@ -82,7 +82,7 @@ export function EventDetailsSection() {
             ? undefined
             : { duration: 15.5, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }
         }
-        className="pointer-events-none absolute bottom-24 left-0 h-72 w-72 rounded-full bg-[#00E5FF]/12 blur-3xl"
+        className="pointer-events-none absolute bottom-24 left-0 hidden h-72 w-72 rounded-full bg-[#00E5FF]/12 blur-3xl md:block"
       />
 
       <div className="relative mx-auto max-w-[1440px] px-6 lg:px-10">
@@ -106,9 +106,9 @@ export function EventDetailsSection() {
               <InteractiveNeonCard
                 accentColor="#FF1744"
                 hoverLift={-8}
-                hoverScale={1.03}
-                maxTilt={5}
-                floatAmplitude={4}
+                hoverScale={1.02}
+                maxTilt={3.5}
+                floatAmplitude={3}
                 floatDuration={5.6}
                 className="flex items-center gap-4 border border-[#EAE7E0]/20 bg-[#050505] p-4 transition-colors hover:border-[#FF1744]/60"
               >
@@ -117,7 +117,7 @@ export function EventDetailsSection() {
                   className="poster-checker relative z-10 h-12 w-12 shrink-0 border border-[#EAE7E0]/25 transition-transform duration-300 group-hover/neoncard:rotate-6"
                 />
                 <div className="relative z-10">
-                  <p className="neon-badge-pulse font-mono-num text-[11px] tracking-widest text-[#FF1744] uppercase">
+                  <p className="font-mono-num text-[11px] tracking-widest text-[#FF1744] uppercase">
                     18 Dec 2026
                   </p>
                   <p className="font-display text-xl font-bold text-[#EAE7E0] uppercase">
@@ -161,7 +161,7 @@ export function EventDetailsSection() {
                       {row.value}
                     </p>
                     {row.secondary && (
-                      <p className="mt-1 text-sm text-[#EAE7E0]/70">{row.secondary}</p>
+                      <p className="mt-1 text-sm text-[#EAE7E0]/75">{row.secondary}</p>
                     )}
                   </dd>
                 </motion.div>
@@ -192,7 +192,7 @@ export function EventDetailsSection() {
               />
               <div className="absolute right-5 bottom-4 left-5 flex flex-col justify-between gap-2 sm:flex-row sm:items-end sm:right-8 sm:bottom-6 sm:left-8">
                 <div>
-                  <p className="neon-badge-pulse font-mono-num text-xs tracking-widest text-[#FF1744] uppercase">
+                  <p className="font-mono-num text-xs tracking-widest text-[#FF1744] uppercase">
                     Event Atmosphere
                   </p>
                   <p className="mt-1 font-display text-2xl font-black tracking-wide text-[#EAE7E0] uppercase sm:text-4xl">
