@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { motion, MotionConfig, useReducedMotion } from 'motion/react';
 import { DEFAULT_STORAGE_KEY, IntroPopup } from './components/IntroPopup';
 import { Navbar } from './components/Navbar';
@@ -15,6 +15,13 @@ import { EDITORIAL_EASE } from './components/MotionPrimitives';
 import { RegistrationModal } from './components/RegistrationModal';
 import { EntryPassTierId, ParticipationCategory } from './types/registration';
 
+const AdminPortal = lazy(() => import('./components/admin/AdminPortal'));
+
+function isAdminPath(pathname: string): boolean {
+  const normalized = pathname.replace(/\/+$/, '') || '/';
+  return normalized === '/admin' || normalized.startsWith('/admin/');
+}
+
 function getInitialIntroOpen(): boolean {
   if (typeof window === 'undefined') return false;
   try {
@@ -25,6 +32,9 @@ function getInitialIntroOpen(): boolean {
 }
 
 export default function App() {
+  const [pathname, setPathname] = useState<string>(() =>
+    typeof window !== 'undefined' ? window.location.pathname : '/'
+  );
   const [isIntroOpen, setIsIntroOpen] = useState<boolean>(getInitialIntroOpen);
   const [registrationOpen, setRegistrationOpen] = useState<boolean>(false);
   const [regPreset, setRegPreset] = useState<{
@@ -32,6 +42,32 @@ export default function App() {
     category?: ParticipationCategory;
   }>({ passTier: 'individual' });
   const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    const onPopState = () => {
+      setPathname(window.location.pathname);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  if (isAdminPath(pathname)) {
+    return (
+      <MotionConfig reducedMotion="user">
+        <Suspense
+          fallback={
+            <div className="underground-surface flex min-h-screen items-center justify-center bg-[#050505] text-[#EAE7E0]">
+              <p className="font-mono-num text-xs tracking-widest text-[#EAE7E0]/75 uppercase">
+                Loading Admin Portal...
+              </p>
+            </div>
+          }
+        >
+          <AdminPortal />
+        </Suspense>
+      </MotionConfig>
+    );
+  }
 
   const openRegistration = (options?: {
     passTier?: EntryPassTierId;
