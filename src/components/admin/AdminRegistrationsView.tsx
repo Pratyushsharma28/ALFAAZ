@@ -28,6 +28,8 @@ interface AdminRegistrationsViewProps {
   submissionsByRegId: Map<string, AdminPaymentSubmissionRecord>;
   isLoading: boolean;
   errorMessage: string | null;
+  entryTypeFilter?: 'all' | EntryPassTierId;
+  onEntryTypeFilterChange?: (next: 'all' | EntryPassTierId) => void;
   onRetry: () => void;
   onSelectRegistration: (reg: AdminRegistrationRecord) => void;
   onInspectSubmission: (sub: AdminPaymentSubmissionRecord) => void;
@@ -41,13 +43,20 @@ export function AdminRegistrationsView({
   submissionsByRegId,
   isLoading,
   errorMessage,
+  entryTypeFilter: controlledEntryType,
+  onEntryTypeFilterChange,
   onRetry,
   onSelectRegistration,
   onInspectSubmission,
   onExportCsv,
 }: AdminRegistrationsViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [entryTypeFilter, setEntryTypeFilter] = useState<'all' | EntryPassTierId>('all');
+  const [uncontrolledEntryType, setUncontrolledEntryType] = useState<'all' | EntryPassTierId>('all');
+  const entryTypeFilter = controlledEntryType ?? uncontrolledEntryType;
+  const setEntryTypeFilter = (next: 'all' | EntryPassTierId) => {
+    setUncontrolledEntryType(next);
+    onEntryTypeFilterChange?.(next);
+  };
   const [categoryFilter, setCategoryFilter] = useState<'all' | ParticipationCategory>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | CanonicalPaymentStatus>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');

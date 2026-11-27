@@ -1,12 +1,16 @@
 import { User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabaseClient';
 import {
+  AdminAnalyticsSummary,
   AdminDashboardPayload,
   AdminDashboardStats,
   AdminPaymentSubmissionRecord,
   AdminRegistrationRecord,
   AdminUserRecord,
   CanonicalPaymentStatus,
+  RegistrationGrowthMetrics,
+  RegistrationTimeBucket,
+  TierBreakdownItem,
 } from '../types/admin';
 import {
   ENTRY_PASS_OPTIONS,
@@ -331,52 +335,57 @@ export async function signOutAdminSession(): Promise<void> {
   }
 }
 
+const SUPABASE_PAGE_SIZE = 1000;
+
 async function selectAllTableRows(
   table: 'registrations' | 'payment_submissions'
 ): Promise<Record<string, unknown>[]> {
   const supabase = getSupabaseClient();
+  const allRows: Record<string, unknown>[] = [];
+  let useCreatedAtOrder = true;
+  let offset = 0;
 
-  const ordered = await supabase
-    .from(table)
-    .select('*')
-    .order('created_at', { ascending: false });
+  while (true) {
+    const query = supabase.from(table).select('*');
+    const res = useCreatedAtOrder
+      ? await query
+          .order('created_at', { ascending: false })
+          .range(offset, offset + SUPABASE_PAGE_SIZE - 1)
+      : await query.range(offset, offset + SUPABASE_PAGE_SIZE - 1);
 
-  if (!ordered.error) {
-    return (ordered.data as Record<string, unknown>[] | null) ?? [];
-  }
+    if (res.error) {
+      if (useCreatedAtOrder && isUndefinedColumnError(res.error)) {
+        useCreatedAtOrder = false;
+        allRows.length = 0;
+        offset = 0;
+        continue;
+      }
 
-  if (isUndefinedColumnError(ordered.error)) {
-    const plain = await supabase.from(table).select('*');
-    if (plain.error) {
-      if (isRlsOrPermissionError(plain.error)) {
+      if (isRlsOrPermissionError(res.error)) {
         throw new AdminApiError(
           `Database permission denied while reading ${table}. Check your Supabase RLS policies for admin_users.`,
           'RLS_FORBIDDEN',
-          plain.error.message
+          res.error.message
         );
       }
+
       throw new AdminApiError(
-        `Failed to fetch ${table}: ${plain.error.message}`,
+        `Failed to fetch ${table}: ${res.error.message}`,
         'QUERY_ERROR',
-        plain.error.message
+        res.error.message
       );
     }
-    return (plain.data as Record<string, unknown>[] | null) ?? [];
+
+    const batch = (res.data as Record<string, unknown>[] | null) ?? [];
+    allRows.push(...batch);
+
+    if (batch.length < SUPABASE_PAGE_SIZE) {
+      break;
+    }
+    offset += SUPABASE_PAGE_SIZE;
   }
 
-  if (isRlsOrPermissionError(ordered.error)) {
-    throw new AdminApiError(
-      `Database permission denied while reading ${table}. Check your Supabase RLS policies for admin_users.`,
-      'RLS_FORBIDDEN',
-      ordered.error.message
-    );
-  }
-
-  throw new AdminApiError(
-    `Failed to fetch ${table}: ${ordered.error.message}`,
-    'QUERY_ERROR',
-    ordered.error.message
-  );
+  return allRows;
 }
 
 export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> {
@@ -533,20 +542,19 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
       row.categories ?? row.category ?? row.participation_categories
     );
 
-    const rawPaymentStatus = pickString(
-      row,
-      ['payment_status', 'status', 'verification_status'],
-      latestSub?.rawStatus ?? 'pending'
-    );
+    const ownRawStatus = pickOptionalString(row, [
+      'payment_status',
+      'status',
+      'verification_status',
+    ]);
+    const ownNormalizedStatus = ownRawStatus ? normalizePaymentStatus(ownRawStatus) : null;
 
-    // If a linked payment submission exists and the registration row itself still shows generic pending
-    // while submission was verified/rejected (or vice versa), prefer explicit submission verification if registration has no status
-    const hasOwnStatus = Boolean(
-      pickOptionalString(row, ['payment_status', 'status', 'verification_status'])
-    );
-    const effectiveRawStatus = hasOwnStatus
-      ? rawPaymentStatus
-      : latestSub?.rawStatus ?? rawPaymentStatus;
+    // Reconcile status: if registration has no status or is still default 'pending'
+    // while its latest payment submission has been explicitly verified or rejected, reflect the submission decision.
+    const effectiveRawStatus =
+      !ownRawStatus || (ownNormalizedStatus === 'pending' && latestSub && latestSub.status !== 'pending')
+        ? latestSub?.rawStatus ?? ownRawStatus ?? 'pending'
+        : ownRawStatus;
 
     return {
       id,
@@ -614,24 +622,226 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
     return timeB - timeA;
   });
 
+  // Deduplicated verified revenue calculation (prevents double-counting across
+  // multiple payment_submissions for the same registration or across both tables).
+  const verifiedPaymentByRegKey = new Map<
+    string,
+    { amountInr: number; entryType: EntryPassTierId }
+  >();
+
+  for (const sub of normalizedSubmissions) {
+    if (sub.status !== 'verified') continue;
+    const dedupKey = sub.registrationId || sub.registrationCode || `sub:${sub.id}`;
+    if (!verifiedPaymentByRegKey.has(dedupKey)) {
+      verifiedPaymentByRegKey.set(dedupKey, {
+        amountInr: Number.isFinite(sub.amountInr) ? sub.amountInr : 0,
+        entryType: sub.entryType,
+      });
+    }
+  }
+
+  for (const reg of normalizedRegistrations) {
+    if (reg.paymentStatus !== 'verified') continue;
+    const alreadyCounted =
+      (reg.id && verifiedPaymentByRegKey.has(reg.id)) ||
+      (reg.registrationCode && verifiedPaymentByRegKey.has(reg.registrationCode));
+    if (!alreadyCounted) {
+      const dedupKey = reg.id || reg.registrationCode;
+      verifiedPaymentByRegKey.set(dedupKey, {
+        amountInr: Number.isFinite(reg.amountInr) ? reg.amountInr : 0,
+        entryType: reg.entryType,
+      });
+    }
+  }
+
+  let totalVerifiedAmountInr = 0;
+  for (const entry of verifiedPaymentByRegKey.values()) {
+    totalVerifiedAmountInr += entry.amountInr;
+  }
+
+  const pendingSubmissionCount = normalizedSubmissions.filter(
+    (s) => s.status === 'pending'
+  ).length;
+  const verifiedSubmissionCount = normalizedSubmissions.filter(
+    (s) => s.status === 'verified'
+  ).length;
+  const rejectedSubmissionCount = normalizedSubmissions.filter(
+    (s) => s.status === 'rejected'
+  ).length;
+  const totalSubmissionCount = normalizedSubmissions.length;
+
+  const pendingRegCount = normalizedRegistrations.filter(
+    (r) => r.paymentStatus === 'pending'
+  ).length;
+  const verifiedRegCount = normalizedRegistrations.filter(
+    (r) => r.paymentStatus === 'verified'
+  ).length;
+  const rejectedRegCount = normalizedRegistrations.filter(
+    (r) => r.paymentStatus === 'rejected'
+  ).length;
+
   const stats: AdminDashboardStats = {
     totalRegistrations: normalizedRegistrations.length,
     individualCount: normalizedRegistrations.filter((r) => r.entryType === 'individual').length,
     coupleCount: normalizedRegistrations.filter((r) => r.entryType === 'couple').length,
     groupCount: normalizedRegistrations.filter((r) => r.entryType === 'group').length,
-    pendingCount: normalizedRegistrations.filter((r) => r.paymentStatus === 'pending').length,
-    verifiedCount: normalizedRegistrations.filter((r) => r.paymentStatus === 'verified').length,
-    rejectedCount: normalizedRegistrations.filter((r) => r.paymentStatus === 'rejected').length,
-    totalVerifiedAmountInr: normalizedRegistrations
-      .filter((r) => r.paymentStatus === 'verified')
-      .reduce((sum, r) => sum + (Number.isFinite(r.amountInr) ? r.amountInr : 0), 0),
+    pendingCount: totalSubmissionCount > 0 ? pendingSubmissionCount : pendingRegCount,
+    verifiedCount: totalSubmissionCount > 0 ? verifiedSubmissionCount : verifiedRegCount,
+    rejectedCount: totalSubmissionCount > 0 ? rejectedSubmissionCount : rejectedRegCount,
+    totalVerifiedAmountInr,
+    pendingSubmissionCount,
+    verifiedSubmissionCount,
+    rejectedSubmissionCount,
+    totalSubmissionCount,
+    verifiedUniqueRegistrationCount: verifiedPaymentByRegKey.size,
+    verificationRatePercent:
+      totalSubmissionCount > 0
+        ? Math.round((verifiedSubmissionCount / totalSubmissionCount) * 100)
+        : null,
   };
+
+  const analytics = buildRegistrationAndPaymentAnalytics(
+    normalizedRegistrations,
+    verifiedPaymentByRegKey
+  );
 
   return {
     registrations: normalizedRegistrations,
     submissions: normalizedSubmissions,
     stats,
+    analytics,
     warnings,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+function toLocalDayKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function toLocalMonthKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+function buildTimeSeries(
+  registrations: AdminRegistrationRecord[],
+  verifiedPaymentByRegKey: Map<string, { amountInr: number; entryType: EntryPassTierId }>,
+  granularity: 'day' | 'month'
+): RegistrationTimeBucket[] {
+  const bucketMap = new Map<
+    string,
+    { label: string; count: number; verifiedRevenueInr: number }
+  >();
+
+  for (const reg of registrations) {
+    if (!reg.createdAt) continue;
+    const date = new Date(reg.createdAt);
+    if (Number.isNaN(date.getTime())) continue;
+
+    const key = granularity === 'day' ? toLocalDayKey(date) : toLocalMonthKey(date);
+    const label =
+      granularity === 'day'
+        ? new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short' }).format(date)
+        : new Intl.DateTimeFormat('en-IN', { month: 'short', year: 'numeric' }).format(date);
+
+    const existing = bucketMap.get(key) ?? { label, count: 0, verifiedRevenueInr: 0 };
+    existing.count += 1;
+
+    if (reg.paymentStatus === 'verified') {
+      const verifiedEntry =
+        (reg.id ? verifiedPaymentByRegKey.get(reg.id) : undefined) ??
+        (reg.registrationCode ? verifiedPaymentByRegKey.get(reg.registrationCode) : undefined);
+      existing.verifiedRevenueInr += verifiedEntry?.amountInr ?? reg.amountInr;
+    }
+
+    bucketMap.set(key, existing);
+  }
+
+  const sortedKeys = Array.from(bucketMap.keys()).sort((a, b) => a.localeCompare(b));
+  let cumulative = 0;
+
+  return sortedKeys.map((key) => {
+    const item = bucketMap.get(key)!;
+    cumulative += item.count;
+    return {
+      key,
+      label: item.label,
+      count: item.count,
+      cumulativeCount: cumulative,
+      verifiedRevenueInr: item.verifiedRevenueInr,
+    };
+  });
+}
+
+function buildRegistrationAndPaymentAnalytics(
+  registrations: AdminRegistrationRecord[],
+  verifiedPaymentByRegKey: Map<string, { amountInr: number; entryType: EntryPassTierId }>
+): AdminAnalyticsSummary {
+  const dailySeries = buildTimeSeries(registrations, verifiedPaymentByRegKey, 'day');
+  const monthlySeries = buildTimeSeries(registrations, verifiedPaymentByRegKey, 'month');
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const sevenDaysAgoStart = todayStart - 6 * 24 * 60 * 60 * 1000;
+  const fourteenDaysAgoStart = todayStart - 13 * 24 * 60 * 60 * 1000;
+
+  let todayCount = 0;
+  let last7DaysCount = 0;
+  let previous7DaysCount = 0;
+
+  for (const reg of registrations) {
+    if (!reg.createdAt) continue;
+    const ts = new Date(reg.createdAt).getTime();
+    if (Number.isNaN(ts)) continue;
+    if (ts >= todayStart) todayCount += 1;
+    if (ts >= sevenDaysAgoStart) last7DaysCount += 1;
+    else if (ts >= fourteenDaysAgoStart && ts < sevenDaysAgoStart) previous7DaysCount += 1;
+  }
+
+  const growthDeltaCount = last7DaysCount - previous7DaysCount;
+  const growthDeltaPercent =
+    previous7DaysCount > 0
+      ? Math.round((growthDeltaCount / previous7DaysCount) * 100)
+      : null;
+
+  const growth: RegistrationGrowthMetrics = {
+    todayCount,
+    last7DaysCount,
+    previous7DaysCount,
+    growthDeltaCount,
+    growthDeltaPercent,
+  };
+
+  const tiers: EntryPassTierId[] = ['individual', 'couple', 'group'];
+  const tierBreakdown: TierBreakdownItem[] = tiers.map((tier) => {
+    const tierRegs = registrations.filter((r) => r.entryType === tier);
+    let verifiedCount = 0;
+    let verifiedRevenueInr = 0;
+    for (const entry of verifiedPaymentByRegKey.values()) {
+      if (entry.entryType === tier) {
+        verifiedCount += 1;
+        verifiedRevenueInr += entry.amountInr;
+      }
+    }
+    return {
+      entryType: tier,
+      label: ENTRY_PASS_OPTIONS[tier].label,
+      totalCount: tierRegs.length,
+      verifiedCount,
+      verifiedRevenueInr,
+    };
+  });
+
+  return {
+    dailySeries,
+    monthlySeries,
+    growth,
+    tierBreakdown,
   };
 }
 

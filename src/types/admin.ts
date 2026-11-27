@@ -2,6 +2,8 @@ import { EntryPassTierId, ParticipationCategory } from './registration';
 
 export type CanonicalPaymentStatus = 'pending' | 'verified' | 'rejected';
 
+export type RealtimeConnectionStatus = 'connecting' | 'subscribed' | 'error' | 'closed';
+
 export interface AdminUserRecord {
   uuid: string;
   email: string;
@@ -75,11 +77,50 @@ export interface AdminDashboardStats {
   verifiedCount: number;
   rejectedCount: number;
   totalVerifiedAmountInr: number;
+  pendingSubmissionCount: number;
+  verifiedSubmissionCount: number;
+  rejectedSubmissionCount: number;
+  totalSubmissionCount: number;
+  verifiedUniqueRegistrationCount: number;
+  verificationRatePercent: number | null;
+}
+
+export interface RegistrationTimeBucket {
+  key: string;
+  label: string;
+  count: number;
+  cumulativeCount: number;
+  verifiedRevenueInr: number;
+}
+
+export interface RegistrationGrowthMetrics {
+  todayCount: number;
+  last7DaysCount: number;
+  previous7DaysCount: number;
+  growthDeltaCount: number;
+  growthDeltaPercent: number | null;
+}
+
+export interface TierBreakdownItem {
+  entryType: EntryPassTierId;
+  label: string;
+  totalCount: number;
+  verifiedCount: number;
+  verifiedRevenueInr: number;
+}
+
+export interface AdminAnalyticsSummary {
+  dailySeries: RegistrationTimeBucket[];
+  monthlySeries: RegistrationTimeBucket[];
+  growth: RegistrationGrowthMetrics;
+  tierBreakdown: TierBreakdownItem[];
 }
 
 export interface AdminDashboardPayload {
   registrations: AdminRegistrationRecord[];
   submissions: AdminPaymentSubmissionRecord[];
   stats: AdminDashboardStats;
+  analytics: AdminAnalyticsSummary;
   warnings: string[];
+  fetchedAt: string;
 }

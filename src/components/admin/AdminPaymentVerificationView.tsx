@@ -22,6 +22,8 @@ interface AdminPaymentVerificationViewProps {
   submissions: AdminPaymentSubmissionRecord[];
   isLoading: boolean;
   errorMessage: string | null;
+  statusFilter?: 'all' | CanonicalPaymentStatus;
+  onStatusFilterChange?: (next: 'all' | CanonicalPaymentStatus) => void;
   onRetry: () => void;
   onInspectSubmission: (submission: AdminPaymentSubmissionRecord) => void;
 }
@@ -30,10 +32,19 @@ export function AdminPaymentVerificationView({
   submissions,
   isLoading,
   errorMessage,
+  statusFilter: controlledStatusFilter,
+  onStatusFilterChange,
   onRetry,
   onInspectSubmission,
 }: AdminPaymentVerificationViewProps) {
-  const [statusFilter, setStatusFilter] = useState<'all' | CanonicalPaymentStatus>('all');
+  const [uncontrolledStatusFilter, setUncontrolledStatusFilter] = useState<
+    'all' | CanonicalPaymentStatus
+  >('all');
+  const statusFilter = controlledStatusFilter ?? uncontrolledStatusFilter;
+  const setStatusFilter = (next: 'all' | CanonicalPaymentStatus) => {
+    setUncontrolledStatusFilter(next);
+    onStatusFilterChange?.(next);
+  };
   const [searchQuery, setSearchQuery] = useState('');
 
   const counts = useMemo(() => {
