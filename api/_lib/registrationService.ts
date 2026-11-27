@@ -6,6 +6,7 @@ import {
   type ParsedUploadedFile,
 } from './httpUtils.js';
 import {
+  getSafeServerSupabaseDiagnostics,
   getSupabaseAdminClient,
   getTableSchemaProperties,
   type TableSchemaMap,
@@ -125,6 +126,34 @@ function extractMissingColumnName(message: string): string | null {
   if (pgMatch?.[1]) return pgMatch[1];
 
   return null;
+}
+
+function isPermissionDeniedError(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return (
+    err.code === '42501' ||
+    /permission denied|row-level security|insufficient privilege/i.test(err.message ?? '')
+  );
+}
+
+function throwPermissionDeniedError(
+  err: { code?: string; message?: string },
+  table: 'registrations' | 'payment_submissions',
+  operation: 'insert' | 'select'
+): never {
+  const diagnostics = getSafeServerSupabaseDiagnostics();
+  console.error('[registrationService] Supabase permission denied', {
+    table,
+    operation,
+    pgCode: err.code ?? null,
+    diagnostics,
+  });
+
+  throw new ApiHttpError(
+    500,
+    `Database permission denied for table ${table} (server key type: ${diagnostics.serviceRoleKeyType}, matching anon key: ${diagnostics.matchesFrontendAnonKey}). Confirm SUPABASE_SERVICE_ROLE_KEY in Vercel is the project's privileged service_role/sb_secret key and ensure PostgreSQL role service_role has INSERT/SELECT privileges on public.${table}.`,
+    'DB_PERMISSION_DENIED'
+  );
 }
 
 function pickString(row: Record<string, unknown>, keys: string[], fallback = ''): string {
@@ -261,6 +290,10 @@ async function insertRowAdaptively(
       statusIdx += 1;
       workingPayload[statusCol] = pendingStatusCandidates[statusIdx];
       continue;
+    }
+
+    if (isPermissionDeniedError(err)) {
+      throwPermissionDeniedError(err, table, 'insert');
     }
 
     if (err.code === '23505') {
@@ -447,6 +480,9 @@ async function findRegistrationByKeyOrId(
     if (!res.error && res.data) {
       return res.data as Record<string, unknown>;
     }
+    if (res.error && isPermissionDeniedError(res.error)) {
+      throwPermissionDeniedError(res.error, 'registrations', 'select');
+    }
     if (res.error && !isUndefinedColumnError(res.error) && res.error.code !== '22P02') {
       throw new ApiHttpError(500, `Failed to query registration: ${res.error.message}`, 'DB_ERROR');
     }
@@ -469,6 +505,10 @@ export async function createOrReuseRegistration(
       .eq('idempotency_key', input.idempotencyKey)
       .limit(1)
       .maybeSingle();
+
+    if (existing.error && isPermissionDeniedError(existing.error)) {
+      throwPermissionDeniedError(existing.error, 'registrations', 'select');
+    }
 
     if (!existing.error && existing.data) {
       const row = existing.data as Record<string, unknown>;
