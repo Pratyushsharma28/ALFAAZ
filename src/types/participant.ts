@@ -1,4 +1,4 @@
-import type { EntryPassTierId } from './registration';
+import type { EntryPassTierId, RegistrationType } from './registration';
 
 export type ParticipantPaymentStatusCode =
   | 'payment_pending'
@@ -32,6 +32,7 @@ export interface ParticipantConfirmedTicketInfo {
 export interface ParticipantRegistrationItem {
   registrationId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   eventName: string;
   eventDate: string;
   venue: string;
@@ -68,6 +69,7 @@ export interface TicketQrVerificationResponse {
   message: string;
   ticketId: string;
   registrationCode?: string;
+  registrationType?: RegistrationType;
   eventName: string;
   eventDate: string;
   venue: string;

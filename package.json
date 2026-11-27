@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "node --test tests/staff-checkin.test.mjs"
+    "test": "node --test tests/staff-checkin.test.mjs tests/audience-registration.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

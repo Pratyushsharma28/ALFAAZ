@@ -1,4 +1,6 @@
 import {
+  AUDIENCE_PASS_FEE_INR,
+  AudienceRegistrationFormData,
   BackendPaymentProofSubmissionResult,
   BackendPaymentVerificationResult,
   BackendRazorpayOrderResult,
@@ -7,6 +9,7 @@ import {
   normalizeIndianMobile,
   RazorpaySuccessPayload,
   RegistrationFormData,
+  RegistrationType,
 } from '../types/registration';
 
 /**
@@ -145,8 +148,8 @@ async function getJson<TResponse>(path: string): Promise<TResponse> {
 }
 
 /**
- * 1. Submit registration data to the backend.
- * Note: The backend must calculate/validate the payable amount from entryType
+ * 1A. Submit participant registration data to the backend.
+ * Note: The backend calculates/validates the payable amount from registrationType + entryType
  * rather than trusting any client-supplied amount.
  */
 export async function submitRegistration(
@@ -157,6 +160,7 @@ export async function submitRegistration(
 
   const payload = {
     idempotencyKey,
+    registrationType: 'PARTICIPANT' as const,
     entryType: formData.entryType,
     expectedFeeInr: selectedPass.price,
     fullName: formData.fullName.trim(),
@@ -179,12 +183,40 @@ export async function submitRegistration(
 }
 
 /**
+ * 1B. Submit audience (watch-only) registration data to the backend.
+ * Fixed authoritative fee: ₹59 per person, enforced on the server.
+ */
+export async function submitAudienceRegistration(
+  formData: AudienceRegistrationFormData,
+  idempotencyKey: string
+): Promise<BackendRegistrationResult> {
+  const payload = {
+    idempotencyKey,
+    registrationType: 'AUDIENCE' as const,
+    entryType: 'individual' as const,
+    expectedFeeInr: AUDIENCE_PASS_FEE_INR,
+    fullName: formData.fullName.trim(),
+    email: formData.email.trim(),
+    mobileNumber: normalizeIndianMobile(formData.mobileNumber),
+    collegeName: formData.collegeName.trim(),
+    city: formData.city.trim(),
+    acknowledgedWatchOnly: formData.acknowledgedWatchOnly,
+  };
+
+  return postJson<BackendRegistrationResult>(
+    REGISTRATION_API_ENDPOINTS.submitRegistration,
+    payload
+  );
+}
+
+/**
  * 2A. Upload UPI payment proof (screenshot or PDF) & UTR linked to registrationId.
  * Uses XMLHttpRequest so real upload progress (0–100%) is surfaced to the UI.
  * Never resolves on HTTP error, network error, or empty/invalid JSON response.
  */
 export function submitPaymentProofWithProgress(params: {
   registrationId: string;
+  registrationType?: RegistrationType;
   entryType: RegistrationFormData['entryType'];
   utr: string;
   proofFile: File;
@@ -198,11 +230,17 @@ export function submitPaymentProofWithProgress(params: {
     return Promise.reject(err);
   }
 
-  const selectedPass = ENTRY_PASS_OPTIONS[params.entryType];
+  const registrationType: RegistrationType = params.registrationType ?? 'PARTICIPANT';
+  const expectedFeeInr =
+    registrationType === 'AUDIENCE'
+      ? AUDIENCE_PASS_FEE_INR
+      : ENTRY_PASS_OPTIONS[params.entryType].price;
+
   const body = new FormData();
   body.append('registrationId', params.registrationId);
+  body.append('registrationType', registrationType);
   body.append('entryType', params.entryType);
-  body.append('expectedFeeInr', String(selectedPass.price));
+  body.append('expectedFeeInr', String(expectedFeeInr));
   body.append('utr', params.utr.trim());
   body.append('idempotencyKey', params.idempotencyKey);
   body.append('proof', params.proofFile);

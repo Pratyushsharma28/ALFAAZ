@@ -1,5 +1,5 @@
 import { CanonicalPaymentStatus } from '../../types/admin';
-import { EntryPassTierId } from '../../types/registration';
+import { EntryPassTierId, RegistrationType } from '../../types/registration';
 
 export function formatInr(amount: number): string {
   const safe = Number.isFinite(amount) ? amount : 0;
@@ -34,6 +34,24 @@ export function formatShortDate(iso: string | undefined): string {
     year: 'numeric',
   }).format(date);
 }
+
+export const REGISTRATION_TYPE_META: Record<
+  RegistrationType,
+  { label: string; shortLabel: string; accentClass: string; borderClass: string }
+> = {
+  PARTICIPANT: {
+    label: 'PARTICIPANT PASS',
+    shortLabel: 'Participant',
+    accentClass: 'text-[#FF1744]',
+    borderClass: 'border-[#FF1744]/45 bg-[#FF1744]/10 text-[#FF1744]',
+  },
+  AUDIENCE: {
+    label: 'AUDIENCE · WATCH ONLY',
+    shortLabel: 'Audience (₹59)',
+    accentClass: 'text-[#00E5FF]',
+    borderClass: 'border-[#00E5FF]/50 bg-[#00E5FF]/10 text-[#00E5FF]',
+  },
+};
 
 export const ENTRY_TYPE_META: Record<
   EntryPassTierId,

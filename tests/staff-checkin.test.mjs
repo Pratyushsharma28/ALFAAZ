@@ -728,7 +728,8 @@ test('4. Simultaneous concurrent scans allow strictly one check-in and reject th
 
   const approvedResp = scanA.json.outcome === 'ENTRY_APPROVED' ? scanA.json : scanB.json;
   const duplicateResp = scanA.json.outcome === 'ALREADY_CHECKED_IN' ? scanA.json : scanB.json;
-  assert.equal(approvedResp.headline, 'ENTRY APPROVED — CHECKED IN');
+  assert.equal(approvedResp.headline, 'PARTICIPANT PASS — ENTRY APPROVED');
+  assert.equal(approvedResp.ticket?.registrationType, 'PARTICIPANT');
   assert.equal(duplicateResp.headline, 'ALREADY CHECKED IN');
   assert.equal(duplicateResp.checkedInAt, approvedResp.checkedInAt);
 

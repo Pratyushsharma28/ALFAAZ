@@ -23,6 +23,7 @@ import {
   formatDateTime,
   formatInr,
   PAYMENT_STATUS_META,
+  REGISTRATION_TYPE_META,
 } from './AdminFormatters';
 
 interface AdminProofViewerModalProps {
@@ -165,15 +166,26 @@ export function AdminProofViewerModal({
             {/* Header */}
             <div className="flex items-center justify-between gap-4 border-b border-[#EAE7E0]/12 px-5 py-4">
               <div className="min-w-0">
-                <p className="font-mono-num text-[11px] tracking-widest text-[#EAE7E0]/55 uppercase">
-                  Payment Verification Review · {submission.registrationCode || submission.id}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`border px-2 py-0.5 font-mono-num text-[10px] font-bold uppercase ${
+                      REGISTRATION_TYPE_META[submission.registrationType].borderClass
+                    }`}
+                  >
+                    {REGISTRATION_TYPE_META[submission.registrationType].label}
+                  </span>
+                  <p className="font-mono-num text-[11px] tracking-widest text-[#EAE7E0]/55 uppercase">
+                    Payment Verification Review · {submission.registrationCode || submission.id}
+                  </p>
+                </div>
                 <h2
                   id="proof-modal-title"
-                  className="mt-1 truncate font-display text-2xl font-black tracking-tight text-[#EAE7E0] uppercase"
+                  className="mt-1.5 truncate font-display text-2xl font-black tracking-tight text-[#EAE7E0] uppercase"
                 >
                   {submission.participantName}
-                  {submission.teamOrIndividualName && submission.teamOrIndividualName !== '—'
+                  {submission.registrationType !== 'AUDIENCE' &&
+                  submission.teamOrIndividualName &&
+                  submission.teamOrIndividualName !== '—'
                     ? ` · ${submission.teamOrIndividualName}`
                     : ''}
                 </h2>
@@ -352,9 +364,15 @@ export function AdminProofViewerModal({
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[#EAE7E0]/55">Entry Type</dt>
-                      <dd className={`mt-0.5 font-semibold ${ENTRY_TYPE_META[submission.entryType].accentClass}`}>
-                        {ENTRY_TYPE_META[submission.entryType].label}
+                      <dt className="text-[#EAE7E0]/55">Registration Type</dt>
+                      <dd
+                        className={`mt-0.5 font-semibold ${
+                          REGISTRATION_TYPE_META[submission.registrationType].accentClass
+                        }`}
+                      >
+                        {submission.registrationType === 'AUDIENCE'
+                          ? 'Audience Pass (Watch Only)'
+                          : `Participant · ${ENTRY_TYPE_META[submission.entryType].label}`}
                       </dd>
                     </div>
                     <div>

@@ -1,6 +1,31 @@
+export type RegistrationType = 'PARTICIPANT' | 'AUDIENCE';
+
 export type EntryPassTierId = 'individual' | 'couple' | 'group';
 
 export type ParticipationCategory = 'Dance' | 'Singing' | 'Poetry';
+
+export const AUDIENCE_PASS_FEE_INR = 59;
+
+export interface AudiencePassOption {
+  registrationType: 'AUDIENCE';
+  label: string;
+  heading: string;
+  price: number;
+  priceDisplay: string;
+  admissionSummary: string;
+  watchOnlyNotice: string;
+}
+
+export const AUDIENCE_PASS_OPTION: AudiencePassOption = {
+  registrationType: 'AUDIENCE',
+  label: 'AUDIENCE PASS',
+  heading: 'AUDIENCE REGISTRATION',
+  price: AUDIENCE_PASS_FEE_INR,
+  priceDisplay: '₹59',
+  admissionSummary: '1 Person · Watch Only',
+  watchOnlyNotice:
+    'Audience registration grants entry to attend and watch ALFAAZ — UNFILTERED only. It does NOT include stage participation or performance rights.',
+};
 
 export interface EntryPassOption {
   id: EntryPassTierId;
@@ -93,7 +118,19 @@ export interface RegistrationFormData {
   emergencyContactNumber: string;
 }
 
+export interface AudienceRegistrationFormData {
+  fullName: string;
+  email: string;
+  mobileNumber: string;
+  collegeName: string;
+  city: string;
+  acknowledgedWatchOnly: boolean;
+}
+
 export type RegistrationFieldErrors = Partial<Record<keyof RegistrationFormData, string>>;
+export type AudienceRegistrationFieldErrors = Partial<
+  Record<keyof AudienceRegistrationFormData, string>
+>;
 
 export type PaymentFlowStatus =
   | 'idle'
@@ -113,6 +150,8 @@ export type PaymentFlowStatus =
 export interface BackendRegistrationResult {
   registrationId: string;
   referenceId?: string;
+  registrationType?: RegistrationType;
+  amountInr?: number;
 }
 
 export interface BackendRazorpayOrderResult {
@@ -132,6 +171,7 @@ export interface RazorpaySuccessPayload {
 export interface BackendPaymentProofSubmissionResult {
   registrationId: string;
   referenceId?: string;
+  registrationType?: RegistrationType;
   status: 'pending_verification' | 'confirmed' | 'verified';
   utr: string;
   proofStatus?: string;
@@ -142,6 +182,7 @@ export interface BackendPaymentVerificationResult {
   status: 'confirmed' | 'verified' | 'pending' | 'pending_verification' | 'failed';
   registrationId: string;
   referenceId: string;
+  registrationType?: RegistrationType;
   participantOrTeamName: string;
   entryType: EntryPassTierId;
   amountPaid: number;
@@ -274,6 +315,43 @@ export function validatePerformanceDetailsStep(
   } else if (!isValidIndianMobile(data.emergencyContactNumber)) {
     errors.emergencyContactNumber =
       'Enter a valid 10-digit Indian mobile number (starting with 6–9).';
+  }
+
+  return errors;
+}
+
+export function validateAudienceRegistrationDetails(
+  data: AudienceRegistrationFormData
+): AudienceRegistrationFieldErrors {
+  const errors: AudienceRegistrationFieldErrors = {};
+
+  if (!data.fullName.trim() || data.fullName.trim().length < 2) {
+    errors.fullName = 'Full name is required (at least 2 characters).';
+  }
+
+  if (!data.email.trim()) {
+    errors.email = 'Email address is required.';
+  } else if (!isValidEmail(data.email)) {
+    errors.email = 'Please enter a valid email address.';
+  }
+
+  if (!data.mobileNumber.trim()) {
+    errors.mobileNumber = 'Mobile number is required.';
+  } else if (!isValidIndianMobile(data.mobileNumber)) {
+    errors.mobileNumber = 'Enter a valid 10-digit Indian mobile number (starting with 6–9).';
+  }
+
+  if (!data.collegeName.trim() || data.collegeName.trim().length < 2) {
+    errors.collegeName = 'College / institution name is required.';
+  }
+
+  if (!data.city.trim() || data.city.trim().length < 2) {
+    errors.city = 'City is required.';
+  }
+
+  if (!data.acknowledgedWatchOnly) {
+    errors.acknowledgedWatchOnly =
+      'Please confirm that this Audience Pass is watch-only and excludes stage performance rights.';
   }
 
   return errors;

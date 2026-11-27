@@ -30,7 +30,7 @@ import {
   CanonicalPaymentStatus,
   RealtimeConnectionStatus,
 } from '../../types/admin';
-import { EntryPassTierId } from '../../types/registration';
+import { EntryPassTierId, RegistrationType } from '../../types/registration';
 import { EDITORIAL_EASE } from '../MotionPrimitives';
 import {
   AdminAccessDeniedScreen,
@@ -60,6 +60,7 @@ export default function AdminPortal() {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
+  const [regTypeFilter, setRegTypeFilter] = useState<'all' | RegistrationType>('all');
   const [regEntryTypeFilter, setRegEntryTypeFilter] = useState<'all' | EntryPassTierId>('all');
   const [verificationStatusFilter, setVerificationStatusFilter] = useState<
     'all' | CanonicalPaymentStatus
@@ -285,8 +286,12 @@ export default function AdminPortal() {
     return map;
   }, [dashboardData?.submissions]);
 
-  const handleOpenRegistrations = (presetEntryType: 'all' | EntryPassTierId = 'all') => {
-    setRegEntryTypeFilter(presetEntryType);
+  const handleOpenRegistrations = (
+    presetEntryType: 'all' | EntryPassTierId = 'all',
+    presetRegType: 'all' | RegistrationType = 'all'
+  ) => {
+    setRegTypeFilter(presetRegType);
+    setRegEntryTypeFilter(presetRegType === 'AUDIENCE' ? 'all' : presetEntryType);
     setActiveTab('registrations');
     setMobileNavOpen(false);
   };
@@ -622,6 +627,8 @@ export default function AdminPortal() {
               submissionsByRegId={submissionsByRegId}
               isLoading={isLoadingData}
               errorMessage={dataError}
+              registrationTypeFilter={regTypeFilter}
+              onRegistrationTypeFilterChange={setRegTypeFilter}
               entryTypeFilter={regEntryTypeFilter}
               onEntryTypeFilterChange={setRegEntryTypeFilter}
               onRetry={() => void loadDashboard()}

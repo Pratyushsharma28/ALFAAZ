@@ -17,22 +17,28 @@ const FAQ_ITEMS: FaqItem[] = [
       'There are no rigid theme constraints, dress codes, or language restrictions. Performers across Dance, Singing, and Poetry are free to present original work, remixes, classical or street choreography, or multilingual spoken word—just keep sets within your allotted stage slot.',
   },
   {
-    id: 'registration',
-    question: 'How do I complete registration and choose my pass?',
+    id: 'audience-vs-participant',
+    question: 'What is the difference between Participant and Audience registration?',
     answer:
-      'Pick Individual (₹99), Couple (₹149), or Group (₹199) in the Passes section or click Register Now to complete your registration form and Razorpay payment directly on this website.',
+      'Participant Registration (Individual ₹99, Couple ₹149, Group ₹199) is for performers taking the stage in Dance, Singing, or Poetry and competing for cash prizes. Audience Registration is a fixed ₹59 per person watch-only pass to attend and enjoy the show—it does not include stage participation or performance rights.',
+  },
+  {
+    id: 'registration',
+    question: 'How do I complete registration and receive my QR ticket?',
+    answer:
+      'Choose Participant or Audience registration, fill in your details, scan the official ALFAAZ UPI QR code to pay, and upload your UTR and payment screenshot. Once an organizer verifies your payment, download your signed QR pass anytime from My Tickets.',
   },
   {
     id: 'perks',
-    question: 'Do all registered participants receive certificates and goodies?',
+    question: 'Who receives certificates and event goodies?',
     answer:
-      'Yes. Every registered participant receives an official participation certificate and event goodies from the Social and Cultural Team, Quad AI, regardless of podium placement.',
+      'Certificates and event goodies from the Social and Cultural Team, Quad AI are awarded to winners only, alongside the ₹10,000 total cash prize pool.',
   },
   {
     id: 'multiple-categories',
     question: 'Can I participate in more than one category?',
     answer:
-      'Yes, you can perform across Dance, Singing, or Poetry as long as your stage slots are registered and confirmed during check-in at Quad AI, Bengaluru on 18 December 2026.',
+      'Yes, performers can select multiple categories across Dance, Singing, or Poetry during Participant Registration as long as stage slots are confirmed during check-in at Quad AI, Bengaluru on 18 December 2026.',
   },
   {
     id: 'prizes',

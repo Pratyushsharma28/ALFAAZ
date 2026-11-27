@@ -81,24 +81,40 @@ export function TicketQrPassCard({
     }
   };
 
+  const isAudience = registration.registrationType === 'AUDIENCE';
+
   return (
-    <div className="mt-6 border border-[#C8F36B]/55 bg-[#070E08] p-5 shadow-[0_0_28px_rgba(200,243,107,0.12)] sm:p-6">
+    <div
+      className={`mt-6 border p-5 sm:p-6 ${
+        isAudience
+          ? 'border-[#00E5FF]/55 bg-[#050C10] shadow-[0_0_28px_rgba(0,229,255,0.12)]'
+          : 'border-[#C8F36B]/55 bg-[#070E08] shadow-[0_0_28px_rgba(200,243,107,0.12)]'
+      }`}
+    >
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         {/* Left Ticket Body */}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="inline-flex items-center gap-1.5 border border-[#C8F36B]/60 bg-[#0D1A0E] px-2.5 py-1 font-mono-num text-[11px] font-bold tracking-[0.18em] text-[#C8F36B] uppercase">
+            <span
+              className={`inline-flex items-center gap-1.5 border px-2.5 py-1 font-mono-num text-[11px] font-bold tracking-[0.18em] uppercase ${
+                isAudience
+                  ? 'border-[#00E5FF]/60 bg-[#07161B] text-[#00E5FF]'
+                  : 'border-[#C8F36B]/60 bg-[#0D1A0E] text-[#C8F36B]'
+              }`}
+            >
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-              Confirmed Official Pass
+              {isAudience ? 'AUDIENCE PASS · WATCH ONLY' : 'PARTICIPANT PASS · CONFIRMED'}
             </span>
             <span className="font-mono-num text-xs text-[#EAE7E0]/70">
               Ticket ID:{' '}
-              <strong className="text-[#C8F36B]">{ticket.ticketId}</strong>
+              <strong className={isAudience ? 'text-[#00E5FF]' : 'text-[#C8F36B]'}>
+                {ticket.ticketId}
+              </strong>
             </span>
           </div>
 
           <h4 className="mt-3 font-display text-3xl font-black tracking-tight text-[#EAE7E0] uppercase sm:text-4xl">
-            {registration.teamOrIndividualName}
+            {isAudience ? registration.participantName : registration.teamOrIndividualName}
           </h4>
           <p className="mt-1 text-xs text-[#EAE7E0]/70">
             {registration.eventName} · {registration.eventDate} · {registration.venue}
@@ -115,25 +131,31 @@ export function TicketQrPassCard({
             </div>
             <div>
               <dt className="font-mono-num text-[10px] tracking-widest text-[#EAE7E0]/50 uppercase">
-                Pass &amp; Category
+                {isAudience ? 'Pass & Rights' : 'Pass & Category'}
               </dt>
               <dd className="mt-0.5 font-semibold text-[#EAE7E0]">
-                {registration.passCategoryLabel} · {registration.categoriesDisplay}
+                {isAudience
+                  ? 'AUDIENCE PASS · Watch Only (No Stage Performance)'
+                  : `${registration.passCategoryLabel} · ${registration.categoriesDisplay}`}
               </dd>
             </div>
             <div>
               <dt className="font-mono-num text-[10px] tracking-widest text-[#EAE7E0]/50 uppercase">
-                Participants
+                {isAudience ? 'Admission' : 'Participants'}
               </dt>
               <dd className="mt-0.5 font-mono-num font-semibold text-[#EAE7E0]">
-                {registration.participantCount} Member(s)
+                {isAudience ? '1 Person' : `${registration.participantCount} Member(s)`}
               </dd>
             </div>
             <div>
               <dt className="font-mono-num text-[10px] tracking-widest text-[#EAE7E0]/50 uppercase">
                 Status
               </dt>
-              <dd className="mt-0.5 inline-flex items-center gap-1 font-mono-num font-bold text-[#C8F36B]">
+              <dd
+                className={`mt-0.5 inline-flex items-center gap-1 font-mono-num font-bold ${
+                  isAudience ? 'text-[#00E5FF]' : 'text-[#C8F36B]'
+                }`}
+              >
                 <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                 Verified (₹{registration.amountPaidInr ?? registration.amountPayableInr})
               </dd>
@@ -145,7 +167,11 @@ export function TicketQrPassCard({
               type="button"
               disabled={downloading}
               onClick={handleDownloadPdf}
-              className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 border border-[#C8F36B] bg-[#C8F36B] px-5 py-2.5 font-display text-lg font-extrabold tracking-wider text-[#050505] uppercase transition-colors hover:bg-[#d7f98d] disabled:cursor-not-allowed disabled:opacity-60"
+              className={`inline-flex min-h-[44px] cursor-pointer items-center gap-2 border px-5 py-2.5 font-display text-lg font-extrabold tracking-wider text-[#050505] uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                isAudience
+                  ? 'border-[#00E5FF] bg-[#00E5FF] hover:bg-[#5eeeff]'
+                  : 'border-[#C8F36B] bg-[#C8F36B] hover:bg-[#d7f98d]'
+              }`}
             >
               {downloading ? (
                 <>
@@ -192,8 +218,12 @@ export function TicketQrPassCard({
               <QrCode className="h-10 w-10" aria-hidden="true" />
             </div>
           )}
-          <p className="mt-2 font-mono-num text-[10px] font-bold tracking-[0.18em] text-[#C8F36B] uppercase">
-            Scan at Entry Gate
+          <p
+            className={`mt-2 font-mono-num text-[10px] font-bold tracking-[0.18em] uppercase ${
+              isAudience ? 'text-[#00E5FF]' : 'text-[#C8F36B]'
+            }`}
+          >
+            {isAudience ? 'Audience Gate Scan' : 'Scan at Entry Gate'}
           </p>
           <p className="mt-0.5 font-mono-num text-[10px] text-[#EAE7E0]/60">
             {ticket.ticketId}

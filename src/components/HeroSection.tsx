@@ -13,9 +13,14 @@ import {
 interface HeroSectionProps {
   onOpenPoster: () => void;
   onOpenRegistration: () => void;
+  onOpenAudienceRegistration: () => void;
 }
 
-export function HeroSection({ onOpenPoster, onOpenRegistration }: HeroSectionProps) {
+export function HeroSection({
+  onOpenPoster,
+  onOpenRegistration,
+  onOpenAudienceRegistration,
+}: HeroSectionProps) {
   const shouldReduceMotion = useReducedMotion();
   const isCompactOrTouch = useIsCompactOrTouch();
   const [unfilteredHovered, setUnfilteredHovered] = useState(false);
@@ -264,7 +269,7 @@ export function HeroSection({ onOpenPoster, onOpenRegistration }: HeroSectionPro
               }
               className="mt-8 border-t border-[#EAE7E0]/15 pt-7"
             >
-              <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3">
                 <motion.button
                   type="button"
                   onClick={onOpenRegistration}
@@ -282,17 +287,32 @@ export function HeroSection({ onOpenPoster, onOpenRegistration }: HeroSectionPro
 
                 <motion.button
                   type="button"
+                  onClick={onOpenAudienceRegistration}
+                  whileHover={shouldReduceMotion ? undefined : { scale: 1.03, y: -2 }}
+                  whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+                  transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
+                  className="group inline-flex min-h-[48px] cursor-pointer items-center gap-2 border border-[#00E5FF] bg-[#05141A] px-5 py-3 font-display text-lg font-extrabold tracking-wider text-[#00E5FF] uppercase transition-all duration-200 hover:bg-[#00E5FF] hover:text-[#050505] hover:shadow-[0_0_24px_rgba(0,229,255,0.4)] whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
+                >
+                  <span>Audience Pass · ₹59</span>
+                  <ArrowUpRight
+                    className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                    aria-hidden="true"
+                  />
+                </motion.button>
+
+                <motion.button
+                  type="button"
                   onClick={onOpenPoster}
                   whileHover={shouldReduceMotion ? undefined : { scale: 1.03, y: -2 }}
                   whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
                   transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
-                  className="group inline-flex min-h-[48px] cursor-pointer items-center gap-2 border border-[#00E5FF]/45 bg-[#050505]/85 px-6 py-3 text-xs font-semibold tracking-wider text-[#EAE7E0] uppercase transition-all duration-200 hover:border-[#00E5FF] hover:text-[#00E5FF] hover:shadow-[0_0_24px_rgba(0,229,255,0.35)] whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
+                  className="group inline-flex min-h-[48px] cursor-pointer items-center gap-2 border border-[#EAE7E0]/25 bg-[#050505]/85 px-5 py-3 text-xs font-semibold tracking-wider text-[#EAE7E0] uppercase transition-all duration-200 hover:border-[#00E5FF] hover:text-[#00E5FF] whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
                 >
                   <Eye
                     className="h-4 w-4 text-[#00E5FF] transition-transform duration-200 group-hover:scale-125 group-hover:-rotate-6"
                     aria-hidden="true"
                   />
-                  View Official Poster
+                  Official Poster
                 </motion.button>
               </div>
 
@@ -329,7 +349,7 @@ export function HeroSection({ onOpenPoster, onOpenRegistration }: HeroSectionPro
                     Passes From
                   </span>
                   <span className="font-mono-num relative z-10 mt-1 block text-base font-semibold text-[#EAE7E0]">
-                    ₹99
+                    ₹59 <span className="text-[11px] font-normal text-[#00E5FF]">· Performer ₹99+</span>
                   </span>
                 </InteractiveNeonCard>
                 <InteractiveNeonCard

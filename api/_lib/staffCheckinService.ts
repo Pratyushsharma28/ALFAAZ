@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ApiHttpError } from './httpUtils.js';
 import { verifyPublicTicketQr } from './participantService.js';
+import { resolveRegistrationType, type RegistrationType } from './registrationService.js';
 import type { VerifiedAdminActor, VerifiedStaffActor } from './staffAuth.js';
 import { getSupabaseAdminClient } from './supabaseAdmin.js';
 import { deriveTicketId, signTicketVerificationToken } from './ticketService.js';
@@ -10,6 +11,7 @@ export type CheckInOutcome = 'ENTRY_APPROVED' | 'ALREADY_CHECKED_IN' | 'ENTRY_DE
 export interface SafeCheckInTicketInfo {
   ticketId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   participantOrTeamName: string;
   passCategoryLabel: string;
   categoriesDisplay: string;
@@ -33,11 +35,16 @@ export interface CheckInSummaryStats {
   checkedInCount: number;
   remainingCount: number;
   checkInRatePercent: number;
+  participantValidTickets: number;
+  participantCheckedInCount: number;
+  audienceValidTickets: number;
+  audienceCheckedInCount: number;
 }
 
 export interface SafeRecentCheckInItem {
   ticketId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   participantOrTeamName: string;
   passCategoryLabel: string;
   participantCount: number;
@@ -62,6 +69,7 @@ export interface AdminCheckInRecordItem {
   ticketId: string;
   registrationId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   participantOrTeamName: string;
   fullName: string;
   passCategoryLabel: string;
@@ -80,6 +88,7 @@ export interface AdminCheckInAuditLogItem {
   ticketId: string;
   registrationId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   performedByEmail: string;
   performedByRole: 'staff' | 'admin';
   originalCheckedInAt: string | null;
@@ -219,6 +228,7 @@ function assertStaffRpcReady(err: { code?: string; message?: string } | null, fn
 interface NormalizedRegistrationSummary {
   registrationId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   ticketId: string;
   fullName: string;
   participantOrTeamName: string;
@@ -315,6 +325,7 @@ async function fetchAllNormalizedRegistrations(
       Boolean(pickOptionalString(regRow, ['revoked_at'])) ||
       ['revoked', 'cancelled', 'canceled', 'void', 'invalidated'].includes(explicitTicketStatus);
 
+    const registrationType = resolveRegistrationType(regRow);
     const existingTicketId = pickOptionalString(regRow, ['ticket_id']) ?? undefined;
     const ticketId = deriveTicketId(registrationId, existingTicketId);
     const entryType = normalizeEntryType(
@@ -328,24 +339,34 @@ async function fetchAllNormalizedRegistrations(
         : null;
 
     const participantCount =
-      pickNumber(regRow, ['participant_count', 'team_size']) ?? (entryType === 'couple' ? 2 : 1);
+      registrationType === 'AUDIENCE'
+        ? 1
+        : pickNumber(regRow, ['participant_count', 'team_size']) ?? (entryType === 'couple' ? 2 : 1);
 
-    const fullName = pickString(regRow, ['full_name', 'participant_name', 'name'], 'Participant');
+    const fullName = pickString(
+      regRow,
+      ['full_name', 'participant_name', 'name'],
+      registrationType === 'AUDIENCE' ? 'Audience Guest' : 'Participant'
+    );
 
     return {
       registrationId,
       registrationCode,
+      registrationType,
       ticketId,
       fullName,
-      participantOrTeamName: pickString(
-        regRow,
-        ['team_or_individual_name', 'team_name', 'stage_name'],
-        fullName
-      ),
-      passCategoryLabel: PASS_LABELS[entryType],
-      categoriesDisplay: normalizeCategoriesDisplay(
-        regRow.categories ?? regRow.category ?? regRow.participation_categories
-      ),
+      participantOrTeamName:
+        registrationType === 'AUDIENCE'
+          ? fullName
+          : pickString(regRow, ['team_or_individual_name', 'team_name', 'stage_name'], fullName),
+      passCategoryLabel:
+        registrationType === 'AUDIENCE' ? 'AUDIENCE PASS' : PASS_LABELS[entryType],
+      categoriesDisplay:
+        registrationType === 'AUDIENCE'
+          ? 'Watch Only (No Stage Performance Rights)'
+          : normalizeCategoriesDisplay(
+              regRow.categories ?? regRow.category ?? regRow.participation_categories
+            ),
       participantCount,
       isValidTicket: reconciled === 'verified' && !isExplicitlyRevoked,
       verifiedAt,
@@ -490,7 +511,8 @@ export async function performAtomicStaffCheckIn(params: {
         ? {
             ticketId: verification.ticketId,
             registrationCode: verification.registrationCode,
-            participantOrTeamName: verification.participantOrTeamName || 'Participant',
+            registrationType: verification.registrationType === 'AUDIENCE' ? 'AUDIENCE' : 'PARTICIPANT',
+            participantOrTeamName: verification.participantOrTeamName || 'Guest',
             passCategoryLabel: verification.passCategoryLabel || 'INDIVIDUAL',
             categoriesDisplay: verification.categoriesDisplay || 'General',
             participantCount: verification.participantCount ?? 1,
@@ -500,14 +522,23 @@ export async function performAtomicStaffCheckIn(params: {
     };
   }
 
+  const registrationType: RegistrationType =
+    verification.registrationType === 'AUDIENCE' ? 'AUDIENCE' : 'PARTICIPANT';
   const canonicalTicketId = verification.ticketId.trim().toUpperCase();
   const canonicalRegId = registrationId.trim();
   const safeTicketInfo: SafeCheckInTicketInfo = {
     ticketId: canonicalTicketId,
     registrationCode: verification.registrationCode || canonicalRegId,
-    participantOrTeamName: verification.participantOrTeamName || 'Participant',
-    passCategoryLabel: verification.passCategoryLabel || 'INDIVIDUAL',
-    categoriesDisplay: verification.categoriesDisplay || 'General',
+    registrationType,
+    participantOrTeamName: verification.participantOrTeamName || 'Guest',
+    passCategoryLabel:
+      verification.passCategoryLabel ||
+      (registrationType === 'AUDIENCE' ? 'AUDIENCE PASS' : 'INDIVIDUAL'),
+    categoriesDisplay:
+      verification.categoriesDisplay ||
+      (registrationType === 'AUDIENCE'
+        ? 'Watch Only (No Stage Performance Rights)'
+        : 'General'),
     participantCount: verification.participantCount ?? 1,
     verifiedAt: verification.verifiedAt ?? null,
   };
@@ -520,6 +551,7 @@ export async function performAtomicStaffCheckIn(params: {
     p_staff_email: params.staff.email,
     p_staff_name: params.staff.fullName,
     p_scan_method: scanMethod,
+    p_registration_type: registrationType,
   });
 
   assertStaffRpcReady(rpcRes.error, 'perform_atomic_ticket_checkin');
@@ -554,8 +586,14 @@ export async function performAtomicStaffCheckIn(params: {
   return {
     approved: true,
     outcome: 'ENTRY_APPROVED',
-    headline: 'ENTRY APPROVED — CHECKED IN',
-    message: 'Pass verified and attendee checked in.',
+    headline:
+      registrationType === 'AUDIENCE'
+        ? 'AUDIENCE PASS — ENTRY APPROVED'
+        : 'PARTICIPANT PASS — ENTRY APPROVED',
+    message:
+      registrationType === 'AUDIENCE'
+        ? 'Audience Pass (Watch Only) verified and checked in.'
+        : 'Participant Pass verified and checked in.',
     checkedInAt: checkedInAt || new Date().toISOString(),
     checkedInByName: checkedInByName || params.staff.fullName,
     scanMethod,
@@ -586,35 +624,55 @@ export async function getStaffGateSummary(staff: VerifiedStaffActor): Promise<{
   const regById = new Map<string, NormalizedRegistrationSummary>();
   const regByTicketId = new Map<string, NormalizedRegistrationSummary>();
   let totalValidTickets = 0;
+  let participantValidTickets = 0;
+  let audienceValidTickets = 0;
 
   for (const reg of normalizedRegs) {
     regById.set(reg.registrationId, reg);
     regByTicketId.set(reg.ticketId, reg);
-    if (reg.isValidTicket) totalValidTickets += 1;
+    if (reg.isValidTicket) {
+      totalValidTickets += 1;
+      if (reg.registrationType === 'AUDIENCE') {
+        audienceValidTickets += 1;
+      } else {
+        participantValidTickets += 1;
+      }
+    }
   }
 
   const checkinRows = (checkinsRes.data as Record<string, unknown>[] | null) ?? [];
   const checkedInCount = checkinRows.length;
-  const remainingCount = Math.max(0, totalValidTickets - checkedInCount);
-  const checkInRatePercent =
-    totalValidTickets > 0 ? Math.round((checkedInCount / totalValidTickets) * 100) : 0;
+  let participantCheckedInCount = 0;
+  let audienceCheckedInCount = 0;
 
-  const recentCheckins: SafeRecentCheckInItem[] = checkinRows.slice(0, 15).map((row) => {
+  const mappedRows: SafeRecentCheckInItem[] = checkinRows.map((row) => {
     const ticketId = pickString(row, ['ticket_id']);
     const regId = pickString(row, ['registration_id']);
     const reg = regByTicketId.get(ticketId) ?? regById.get(regId);
+    const registrationType = reg?.registrationType ?? resolveRegistrationType(row);
+    if (registrationType === 'AUDIENCE') {
+      audienceCheckedInCount += 1;
+    } else {
+      participantCheckedInCount += 1;
+    }
 
     return {
       ticketId,
       registrationCode: reg?.registrationCode || pickString(row, ['registration_code'], regId),
+      registrationType,
       participantOrTeamName: reg?.participantOrTeamName || 'Verified Guest',
-      passCategoryLabel: reg?.passCategoryLabel || 'PASS',
+      passCategoryLabel:
+        reg?.passCategoryLabel || (registrationType === 'AUDIENCE' ? 'AUDIENCE PASS' : 'PASS'),
       participantCount: reg?.participantCount ?? 1,
       checkedInAt: pickString(row, ['checked_in_at', 'created_at']),
       checkedInByName: pickString(row, ['checked_in_by_name'], 'Gate Staff'),
       scanMethod: pickString(row, ['scan_method'], 'qr') === 'manual' ? 'manual' : 'qr',
     };
   });
+
+  const remainingCount = Math.max(0, totalValidTickets - checkedInCount);
+  const checkInRatePercent =
+    totalValidTickets > 0 ? Math.round((checkedInCount / totalValidTickets) * 100) : 0;
 
   return {
     staff,
@@ -623,8 +681,12 @@ export async function getStaffGateSummary(staff: VerifiedStaffActor): Promise<{
       checkedInCount,
       remainingCount,
       checkInRatePercent,
+      participantValidTickets,
+      participantCheckedInCount,
+      audienceValidTickets,
+      audienceCheckedInCount,
     },
-    recentCheckins,
+    recentCheckins: mappedRows.slice(0, 15),
   };
 }
 
@@ -873,33 +935,53 @@ export async function getAdminCheckinReport(): Promise<{
   const regById = new Map<string, NormalizedRegistrationSummary>();
   const regByTicketId = new Map<string, NormalizedRegistrationSummary>();
   let totalValidTickets = 0;
+  let participantValidTickets = 0;
+  let audienceValidTickets = 0;
 
   for (const reg of normalizedRegs) {
     regById.set(reg.registrationId, reg);
     regByTicketId.set(reg.ticketId, reg);
-    if (reg.isValidTicket) totalValidTickets += 1;
+    if (reg.isValidTicket) {
+      totalValidTickets += 1;
+      if (reg.registrationType === 'AUDIENCE') {
+        audienceValidTickets += 1;
+      } else {
+        participantValidTickets += 1;
+      }
+    }
   }
 
   const checkinRows = (checkinsRes.data as Record<string, unknown>[] | null) ?? [];
   const checkedInCount = checkinRows.length;
-  const remainingCount = Math.max(0, totalValidTickets - checkedInCount);
-  const checkInRatePercent =
-    totalValidTickets > 0 ? Math.round((checkedInCount / totalValidTickets) * 100) : 0;
+  let participantCheckedInCount = 0;
+  let audienceCheckedInCount = 0;
 
   const checkedInTickets: AdminCheckInRecordItem[] = checkinRows.map((row) => {
     const ticketId = pickString(row, ['ticket_id']);
     const registrationId = pickString(row, ['registration_id']);
     const reg = regByTicketId.get(ticketId) ?? regById.get(registrationId);
+    const registrationType = reg?.registrationType ?? resolveRegistrationType(row);
+    if (registrationType === 'AUDIENCE') {
+      audienceCheckedInCount += 1;
+    } else {
+      participantCheckedInCount += 1;
+    }
 
     return {
       id: pickString(row, ['id'], ticketId),
       ticketId,
       registrationId,
       registrationCode: reg?.registrationCode || pickString(row, ['registration_code'], registrationId),
+      registrationType,
       participantOrTeamName: reg?.participantOrTeamName || 'Verified Guest',
-      fullName: reg?.fullName || 'Participant',
-      passCategoryLabel: reg?.passCategoryLabel || 'PASS',
-      categoriesDisplay: reg?.categoriesDisplay || 'General',
+      fullName: reg?.fullName || 'Guest',
+      passCategoryLabel:
+        reg?.passCategoryLabel || (registrationType === 'AUDIENCE' ? 'AUDIENCE PASS' : 'PASS'),
+      categoriesDisplay:
+        reg?.categoriesDisplay ||
+        (registrationType === 'AUDIENCE'
+          ? 'Watch Only (No Stage Performance Rights)'
+          : 'General'),
       participantCount: reg?.participantCount ?? 1,
       checkedInAt: pickString(row, ['checked_in_at', 'created_at']),
       checkedInByUserId: pickString(row, ['checked_in_by_user_id']),
@@ -909,19 +991,29 @@ export async function getAdminCheckinReport(): Promise<{
     };
   });
 
+  const remainingCount = Math.max(0, totalValidTickets - checkedInCount);
+  const checkInRatePercent =
+    totalValidTickets > 0 ? Math.round((checkedInCount / totalValidTickets) * 100) : 0;
+
   const auditRows = (auditRes.data as Record<string, unknown>[] | null) ?? [];
-  const auditLogs: AdminCheckInAuditLogItem[] = auditRows.map((row) => ({
-    id: pickString(row, ['id']),
-    action: pickString(row, ['action']) === 'REVERSED' ? 'REVERSED' : 'CHECKED_IN',
-    ticketId: pickString(row, ['ticket_id']),
-    registrationId: pickString(row, ['registration_id']),
-    registrationCode: pickString(row, ['registration_code']),
-    performedByEmail: pickString(row, ['performed_by_email']),
-    performedByRole: pickString(row, ['performed_by_role']) === 'admin' ? 'admin' : 'staff',
-    originalCheckedInAt: pickOptionalString(row, ['original_checked_in_at']),
-    reason: pickOptionalString(row, ['reason']),
-    createdAt: pickString(row, ['created_at']),
-  }));
+  const auditLogs: AdminCheckInAuditLogItem[] = auditRows.map((row) => {
+    const ticketId = pickString(row, ['ticket_id']);
+    const regId = pickString(row, ['registration_id']);
+    const reg = regByTicketId.get(ticketId) ?? regById.get(regId);
+    return {
+      id: pickString(row, ['id']),
+      action: pickString(row, ['action']) === 'REVERSED' ? 'REVERSED' : 'CHECKED_IN',
+      ticketId,
+      registrationId: regId,
+      registrationCode: pickString(row, ['registration_code']),
+      registrationType: reg?.registrationType ?? resolveRegistrationType(row),
+      performedByEmail: pickString(row, ['performed_by_email']),
+      performedByRole: pickString(row, ['performed_by_role']) === 'admin' ? 'admin' : 'staff',
+      originalCheckedInAt: pickOptionalString(row, ['original_checked_in_at']),
+      reason: pickOptionalString(row, ['reason']),
+      createdAt: pickString(row, ['created_at']),
+    };
+  });
 
   return {
     stats: {
@@ -929,6 +1021,10 @@ export async function getAdminCheckinReport(): Promise<{
       checkedInCount,
       remainingCount,
       checkInRatePercent,
+      participantValidTickets,
+      participantCheckedInCount,
+      audienceValidTickets,
+      audienceCheckedInCount,
     },
     checkedInTickets,
     auditLogs,

@@ -13,9 +13,11 @@ import {
   TierBreakdownItem,
 } from '../types/admin';
 import {
+  AUDIENCE_PASS_FEE_INR,
   ENTRY_PASS_OPTIONS,
   EntryPassTierId,
   ParticipationCategory,
+  RegistrationType,
 } from '../types/registration';
 
 export type AdminApiErrorCode =
@@ -105,6 +107,19 @@ function normalizeEntryType(raw: string): EntryPassTierId {
   if (lower === 'couple' || lower === 'duo') return 'couple';
   if (lower === 'group' || lower === 'team') return 'group';
   return 'individual';
+}
+
+function resolveRegistrationType(
+  row: Record<string, unknown>,
+  fallback: RegistrationType = 'PARTICIPANT'
+): RegistrationType {
+  const raw = row.registration_type;
+  if (typeof raw === 'string') {
+    const upper = raw.trim().toUpperCase();
+    if (upper === 'AUDIENCE') return 'AUDIENCE';
+    if (upper === 'PARTICIPANT') return 'PARTICIPANT';
+  }
+  return fallback;
 }
 
 function normalizeCategories(raw: unknown): {
@@ -419,6 +434,11 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
       (registrationId ? regById.get(registrationId) : undefined) ??
       regByCode.get(pickString(row, ['registration_code', 'reference_id']));
 
+    const linkedRegType: RegistrationType = linkedReg
+      ? resolveRegistrationType(linkedReg, 'PARTICIPANT')
+      : 'PARTICIPANT';
+    const registrationType = resolveRegistrationType(row, linkedRegType);
+
     const entryType = normalizeEntryType(
       pickString(
         row,
@@ -460,6 +480,7 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
         ['registration_code', 'reference_id'],
         linkedReg ? pickString(linkedReg, ['registration_code', 'reference_id', 'id']) : registrationId
       ),
+      registrationType,
       participantName: pickString(
         row,
         ['full_name', 'participant_name', 'name'],
@@ -486,7 +507,11 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
         linkedReg ? pickString(linkedReg, ['college_name', 'college'], '—') : '—'
       ),
       entryType,
-      amountInr: dbAmount ?? ENTRY_PASS_OPTIONS[entryType].price,
+      amountInr:
+        dbAmount ??
+        (registrationType === 'AUDIENCE'
+          ? AUDIENCE_PASS_FEE_INR
+          : ENTRY_PASS_OPTIONS[entryType].price),
       utr: pickString(row, ['utr', 'transaction_id', 'utr_number', 'upi_ref'], '—'),
       proofPath,
       proofMimeType: pickString(row, ['mime_type', 'proof_mime_type', 'content_type', 'file_type']),
@@ -526,6 +551,11 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
     const registrationCode = pickString(row, ['registration_code', 'reference_id', 'code'], id);
     const latestSub = latestSubByRegId.get(id) ?? latestSubByRegId.get(registrationCode);
 
+    const registrationType = resolveRegistrationType(
+      row,
+      latestSub?.registrationType ?? 'PARTICIPANT'
+    );
+
     const entryType = normalizeEntryType(
       pickString(row, ['entry_type', 'participation_type', 'pass_type'], 'individual')
     );
@@ -537,7 +567,12 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
       'fee_inr',
       'amount_paid',
     ]);
-    const amountInr = dbAmount ?? latestSub?.amountInr ?? ENTRY_PASS_OPTIONS[entryType].price;
+    const amountInr =
+      dbAmount ??
+      latestSub?.amountInr ??
+      (registrationType === 'AUDIENCE'
+        ? AUDIENCE_PASS_FEE_INR
+        : ENTRY_PASS_OPTIONS[entryType].price);
 
     const { categories, display } = normalizeCategories(
       row.categories ?? row.category ?? row.participation_categories
@@ -557,30 +592,42 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
         ? latestSub?.rawStatus ?? ownRawStatus ?? 'pending'
         : ownRawStatus;
 
+    const fullName = pickString(row, ['full_name', 'participant_name', 'name'], '—');
+
     return {
       id,
       registrationCode,
-      fullName: pickString(row, ['full_name', 'participant_name', 'name'], '—'),
+      registrationType,
+      fullName,
       email: pickString(row, ['email'], '—'),
       mobileNumber: pickString(row, ['mobile_number', 'phone', 'mobile'], '—'),
       collegeName: pickString(row, ['college_name', 'college'], '—'),
       city: pickString(row, ['city'], '—'),
-      categories,
-      categoriesDisplay: display,
+      categories: registrationType === 'AUDIENCE' ? [] : categories,
+      categoriesDisplay:
+        registrationType === 'AUDIENCE'
+          ? 'Watch Only (No Stage Performance Rights)'
+          : display,
       entryType,
       teamOrIndividualName: pickString(
         row,
         ['team_or_individual_name', 'team_name', 'stage_name'],
-        '—'
+        registrationType === 'AUDIENCE' ? fullName : '—'
       ),
       participantCount:
-        pickNumber(row, ['participant_count', 'team_size']) ??
-        ENTRY_PASS_OPTIONS[entryType].fixedParticipantCount ??
-        1,
-      participantNames: normalizeParticipantNames(
-        row.participant_names ?? row.members ?? row.participants
-      ),
-      teamLeaderName: pickString(row, ['team_leader_name', 'team_leader', 'leader_name'], '—'),
+        registrationType === 'AUDIENCE'
+          ? 1
+          : pickNumber(row, ['participant_count', 'team_size']) ??
+            ENTRY_PASS_OPTIONS[entryType].fixedParticipantCount ??
+            1,
+      participantNames:
+        registrationType === 'AUDIENCE'
+          ? fullName
+          : normalizeParticipantNames(row.participant_names ?? row.members ?? row.participants),
+      teamLeaderName:
+        registrationType === 'AUDIENCE'
+          ? '—'
+          : pickString(row, ['team_leader_name', 'team_leader', 'leader_name'], '—'),
       emergencyContactNumber: pickString(
         row,
         ['emergency_contact_number', 'emergency_contact'],
@@ -627,7 +674,7 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
   // multiple payment_submissions for the same registration or across both tables).
   const verifiedPaymentByRegKey = new Map<
     string,
-    { amountInr: number; entryType: EntryPassTierId }
+    { amountInr: number; entryType: EntryPassTierId; registrationType: RegistrationType }
   >();
 
   for (const sub of normalizedSubmissions) {
@@ -637,6 +684,7 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
       verifiedPaymentByRegKey.set(dedupKey, {
         amountInr: Number.isFinite(sub.amountInr) ? sub.amountInr : 0,
         entryType: sub.entryType,
+        registrationType: sub.registrationType,
       });
     }
   }
@@ -651,13 +699,21 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
       verifiedPaymentByRegKey.set(dedupKey, {
         amountInr: Number.isFinite(reg.amountInr) ? reg.amountInr : 0,
         entryType: reg.entryType,
+        registrationType: reg.registrationType,
       });
     }
   }
 
   let totalVerifiedAmountInr = 0;
+  let participantVerifiedAmountInr = 0;
+  let audienceVerifiedAmountInr = 0;
   for (const entry of verifiedPaymentByRegKey.values()) {
     totalVerifiedAmountInr += entry.amountInr;
+    if (entry.registrationType === 'AUDIENCE') {
+      audienceVerifiedAmountInr += entry.amountInr;
+    } else {
+      participantVerifiedAmountInr += entry.amountInr;
+    }
   }
 
   const pendingSubmissionCount = normalizedSubmissions.filter(
@@ -681,11 +737,26 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
     (r) => r.paymentStatus === 'rejected'
   ).length;
 
+  const participantRegs = normalizedRegistrations.filter(
+    (r) => r.registrationType === 'PARTICIPANT'
+  );
+  const audienceRegs = normalizedRegistrations.filter(
+    (r) => r.registrationType === 'AUDIENCE'
+  );
+
   const stats: AdminDashboardStats = {
     totalRegistrations: normalizedRegistrations.length,
-    individualCount: normalizedRegistrations.filter((r) => r.entryType === 'individual').length,
-    coupleCount: normalizedRegistrations.filter((r) => r.entryType === 'couple').length,
-    groupCount: normalizedRegistrations.filter((r) => r.entryType === 'group').length,
+    participantCount: participantRegs.length,
+    audienceCount: audienceRegs.length,
+    participantVerifiedCount: participantRegs.filter((r) => r.paymentStatus === 'verified').length,
+    audienceVerifiedCount: audienceRegs.filter((r) => r.paymentStatus === 'verified').length,
+    participantPendingCount: participantRegs.filter((r) => r.paymentStatus === 'pending').length,
+    audiencePendingCount: audienceRegs.filter((r) => r.paymentStatus === 'pending').length,
+    participantVerifiedAmountInr,
+    audienceVerifiedAmountInr,
+    individualCount: participantRegs.filter((r) => r.entryType === 'individual').length,
+    coupleCount: participantRegs.filter((r) => r.entryType === 'couple').length,
+    groupCount: participantRegs.filter((r) => r.entryType === 'group').length,
     pendingCount: totalSubmissionCount > 0 ? pendingSubmissionCount : pendingRegCount,
     verifiedCount: totalSubmissionCount > 0 ? verifiedSubmissionCount : verifiedRegCount,
     rejectedCount: totalSubmissionCount > 0 ? rejectedSubmissionCount : rejectedRegCount,
@@ -731,7 +802,10 @@ function toLocalMonthKey(date: Date): string {
 
 function buildTimeSeries(
   registrations: AdminRegistrationRecord[],
-  verifiedPaymentByRegKey: Map<string, { amountInr: number; entryType: EntryPassTierId }>,
+  verifiedPaymentByRegKey: Map<
+    string,
+    { amountInr: number; entryType: EntryPassTierId; registrationType: RegistrationType }
+  >,
   granularity: 'day' | 'month'
 ): RegistrationTimeBucket[] {
   const bucketMap = new Map<
@@ -781,7 +855,10 @@ function buildTimeSeries(
 
 function buildRegistrationAndPaymentAnalytics(
   registrations: AdminRegistrationRecord[],
-  verifiedPaymentByRegKey: Map<string, { amountInr: number; entryType: EntryPassTierId }>
+  verifiedPaymentByRegKey: Map<
+    string,
+    { amountInr: number; entryType: EntryPassTierId; registrationType: RegistrationType }
+  >
 ): AdminAnalyticsSummary {
   const dailySeries = buildTimeSeries(registrations, verifiedPaymentByRegKey, 'day');
   const monthlySeries = buildTimeSeries(registrations, verifiedPaymentByRegKey, 'month');
@@ -820,22 +897,45 @@ function buildRegistrationAndPaymentAnalytics(
 
   const tiers: EntryPassTierId[] = ['individual', 'couple', 'group'];
   const tierBreakdown: TierBreakdownItem[] = tiers.map((tier) => {
-    const tierRegs = registrations.filter((r) => r.entryType === tier);
+    const tierRegs = registrations.filter(
+      (r) => r.registrationType === 'PARTICIPANT' && r.entryType === tier
+    );
     let verifiedCount = 0;
     let verifiedRevenueInr = 0;
     for (const entry of verifiedPaymentByRegKey.values()) {
-      if (entry.entryType === tier) {
+      if (entry.registrationType === 'PARTICIPANT' && entry.entryType === tier) {
         verifiedCount += 1;
         verifiedRevenueInr += entry.amountInr;
       }
     }
     return {
+      key: tier,
+      registrationType: 'PARTICIPANT',
       entryType: tier,
       label: ENTRY_PASS_OPTIONS[tier].label,
       totalCount: tierRegs.length,
       verifiedCount,
       verifiedRevenueInr,
     };
+  });
+
+  const audienceRegs = registrations.filter((r) => r.registrationType === 'AUDIENCE');
+  let audienceVerifiedCount = 0;
+  let audienceVerifiedRevenueInr = 0;
+  for (const entry of verifiedPaymentByRegKey.values()) {
+    if (entry.registrationType === 'AUDIENCE') {
+      audienceVerifiedCount += 1;
+      audienceVerifiedRevenueInr += entry.amountInr;
+    }
+  }
+  tierBreakdown.push({
+    key: 'audience',
+    registrationType: 'AUDIENCE',
+    entryType: 'individual',
+    label: 'AUDIENCE PASS (₹59)',
+    totalCount: audienceRegs.length,
+    verifiedCount: audienceVerifiedCount,
+    verifiedRevenueInr: audienceVerifiedRevenueInr,
   });
 
   return {
@@ -1131,6 +1231,7 @@ export function exportRegistrationsCsv(records: AdminRegistrationRecord[], filen
   const headers = [
     'Registration ID',
     'Registration Code',
+    'Registration Type',
     'Full Name',
     'Email',
     'Mobile Number',
@@ -1154,12 +1255,15 @@ export function exportRegistrationsCsv(records: AdminRegistrationRecord[], filen
   const rows = records.map((rec) => [
     rec.id,
     rec.registrationCode,
+    rec.registrationType,
     rec.fullName,
     rec.email,
     rec.mobileNumber,
     rec.collegeName,
     rec.city,
-    ENTRY_PASS_OPTIONS[rec.entryType].label,
+    rec.registrationType === 'AUDIENCE'
+      ? 'Audience Pass (Watch Only)'
+      : ENTRY_PASS_OPTIONS[rec.entryType].label,
     rec.categoriesDisplay,
     rec.teamOrIndividualName,
     rec.participantCount,

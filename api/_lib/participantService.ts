@@ -7,10 +7,13 @@ import {
   type ParsedUploadedFile,
 } from './httpUtils.js';
 import {
+  AUDIENCE_PASS_FEE_INR,
   AUTHORITATIVE_PASS_FEES_INR,
   type EntryPassTierId,
   MAX_PROOF_FILE_SIZE_BYTES,
   PAYMENT_PROOFS_BUCKET,
+  resolveRegistrationType,
+  type RegistrationType,
 } from './registrationService.js';
 import {
   getSupabaseAdminClient,
@@ -56,6 +59,7 @@ export interface ParticipantConfirmedTicketInfo {
 export interface ParticipantRegistrationItem {
   registrationId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   eventName: string;
   eventDate: string;
   venue: string;
@@ -86,6 +90,7 @@ export interface TicketQrVerificationResponse {
   message: string;
   ticketId: string;
   registrationCode?: string;
+  registrationType?: RegistrationType;
   eventName: string;
   eventDate: string;
   venue: string;
@@ -458,12 +463,16 @@ function buildRegistrationItem(params: {
     registrationId
   );
 
+  const registrationType = resolveRegistrationType(regRow);
+
   const entryType = normalizeEntryType(
     pickString(regRow, ['entry_type', 'participation_type', 'pass_type'], 'individual')
   );
   const amountPayableInr =
     pickNumber(regRow, ['amount_inr', 'amount', 'expected_fee_inr', 'fee_inr']) ??
-    AUTHORITATIVE_PASS_FEES_INR[entryType];
+    (registrationType === 'AUDIENCE'
+      ? AUDIENCE_PASS_FEE_INR
+      : AUTHORITATIVE_PASS_FEES_INR[entryType]);
 
   const historyItems = submissions
     .map((sub) => mapSubmissionRowToHistoryItem(sub, amountPayableInr))
@@ -502,7 +511,8 @@ function buildRegistrationItem(params: {
   if (reconciled === 'verified') {
     paymentStatus = 'verified';
     paymentStatusLabel = 'Verified — Payment Confirmed';
-    ticketStatusLabel = 'Confirmed Ticket Ready';
+    ticketStatusLabel =
+      registrationType === 'AUDIENCE' ? 'Confirmed Audience Pass Ready' : 'Confirmed Ticket Ready';
   } else if (reconciled === 'rejected') {
     paymentStatus = 'rejected';
     paymentStatusLabel = 'Rejected — Action Required';
@@ -517,9 +527,14 @@ function buildRegistrationItem(params: {
     ticketStatusLabel = 'Payment Pending';
   }
 
-  const { categories, display: categoriesDisplay } = normalizeCategories(
+  const parsedCategories = normalizeCategories(
     regRow.categories ?? regRow.category ?? regRow.participation_categories
   );
+  const categories = registrationType === 'AUDIENCE' ? [] : parsedCategories.categories;
+  const categoriesDisplay =
+    registrationType === 'AUDIENCE'
+      ? 'Watch Only (No Stage Performance Rights)'
+      : parsedCategories.display;
 
   const rejectionReason =
     paymentStatus === 'rejected'
@@ -564,29 +579,37 @@ function buildRegistrationItem(params: {
       : null;
 
   const participantCount =
-    pickNumber(regRow, ['participant_count', 'team_size']) ??
-    (entryType === 'couple' ? 2 : 1);
+    registrationType === 'AUDIENCE'
+      ? 1
+      : pickNumber(regRow, ['participant_count', 'team_size']) ?? (entryType === 'couple' ? 2 : 1);
+
+  const participantName = pickString(
+    regRow,
+    ['full_name', 'participant_name', 'name'],
+    registrationType === 'AUDIENCE' ? 'Audience Guest' : 'Participant'
+  );
 
   return {
     registrationId,
     registrationCode,
+    registrationType,
     eventName: 'ALFAAZ — UNFILTERED',
-    eventDate: '18 December 2026 · 10:00 AM',
+    eventDate: '18 December 2026 · 4:00 PM',
     venue: 'Quad AI, Bengaluru',
-    participantName: pickString(regRow, ['full_name', 'participant_name', 'name'], 'Participant'),
-    teamOrIndividualName: pickString(
-      regRow,
-      ['team_or_individual_name', 'team_name', 'stage_name'],
-      pickString(regRow, ['full_name', 'participant_name', 'name'], 'Participant')
-    ),
+    participantName,
+    teamOrIndividualName:
+      registrationType === 'AUDIENCE'
+        ? participantName
+        : pickString(regRow, ['team_or_individual_name', 'team_name', 'stage_name'], participantName),
     entryType,
-    passCategoryLabel: PASS_LABELS[entryType],
+    passCategoryLabel: registrationType === 'AUDIENCE' ? 'AUDIENCE PASS' : PASS_LABELS[entryType],
     categories,
     categoriesDisplay,
     participantCount,
-    participantNames: normalizeParticipantNames(
-      regRow.participant_names ?? regRow.members ?? regRow.participants
-    ),
+    participantNames:
+      registrationType === 'AUDIENCE'
+        ? participantName
+        : normalizeParticipantNames(regRow.participant_names ?? regRow.members ?? regRow.participants),
     registeredAt: pickString(regRow, ['created_at', 'registered_at', 'registration_date']),
     amountPayableInr,
     amountPaidInr,
@@ -745,6 +768,7 @@ export async function getVerifiedTicketPdfForParticipant(params: {
     ticketId: item.ticket.ticketId,
     registrationId: item.registrationId,
     registrationCode: item.registrationCode,
+    registrationType: item.registrationType,
     participantOrTeamName: item.teamOrIndividualName,
     fullName: item.participantName,
     entryTypeLabel: item.passCategoryLabel,
@@ -885,10 +909,26 @@ export async function resubmitParticipantPaymentProof(params: {
     }
   }
 
+  const registrationType = resolveRegistrationType(regRow);
+  if (
+    registrationType === 'AUDIENCE' &&
+    subSchema &&
+    !Object.prototype.hasOwnProperty.call(subSchema, 'registration_type')
+  ) {
+    throw new ApiHttpError(
+      503,
+      'Audience registration database migration is pending (missing payment_submissions.registration_type). Run supabase/audience_registration_migration.sql in your Supabase SQL Editor.',
+      'SCHEMA_NOT_READY'
+    );
+  }
+
   const entryType = normalizeEntryType(
     pickString(regRow, ['entry_type', 'participation_type', 'pass_type'], 'individual')
   );
-  const authoritativeFee = AUTHORITATIVE_PASS_FEES_INR[entryType];
+  const authoritativeFee =
+    registrationType === 'AUDIENCE'
+      ? AUDIENCE_PASS_FEE_INR
+      : AUTHORITATIVE_PASS_FEES_INR[entryType];
 
   const safeOriginalName =
     params.file.originalFilename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80) ||
@@ -959,6 +999,7 @@ export async function resubmitParticipantPaymentProof(params: {
   const submissionPayload = buildPayload(subSchema, [
     { keys: ['registration_id'], value: regPrimaryId },
     { keys: ['registration_code', 'reference_id'], value: regCode },
+    { keys: ['registration_type'], value: registrationType },
     { keys: ['entry_type', 'participation_type', 'pass_type'], value: entryType },
     { keys: ['amount_inr', 'amount', 'expected_fee_inr', 'fee_inr', 'amount_paid'], value: authoritativeFee },
     { keys: ['utr', 'transaction_id', 'utr_number', 'upi_ref'], value: utr },
@@ -983,6 +1024,10 @@ export async function resubmitParticipantPaymentProof(params: {
     },
     { keys: ['idempotency_key'], value: `resubmit_${regPrimaryId}_${utr}_${Date.now()}` },
   ]);
+
+  if (registrationType === 'AUDIENCE' && !Object.prototype.hasOwnProperty.call(submissionPayload, 'registration_type')) {
+    submissionPayload.registration_type = 'AUDIENCE';
+  }
 
   const hasPopulatedProofPath = proofPathKeys.some((key) => {
     const val = submissionPayload[key];
@@ -1016,6 +1061,13 @@ export async function resubmitParticipantPaymentProof(params: {
       if (!err) break;
       if (isUndefinedColumnError(err)) {
         const missingCol = extractMissingColumnName(err.message ?? '');
+        if (missingCol === 'registration_type' && registrationType === 'AUDIENCE') {
+          throw new ApiHttpError(
+            503,
+            'Audience registration database migration is pending (missing payment_submissions.registration_type). Run supabase/audience_registration_migration.sql in your Supabase SQL Editor.',
+            'SCHEMA_NOT_READY'
+          );
+        }
         if (missingCol && Object.prototype.hasOwnProperty.call(workingPayload, missingCol)) {
           delete workingPayload[missingCol];
           continue;
@@ -1089,7 +1141,7 @@ export async function verifyPublicTicketQr(params: {
 
   const baseInfo = {
     eventName: 'ALFAAZ — UNFILTERED',
-    eventDate: '18 December 2026 · 10:00 AM',
+    eventDate: '18 December 2026 · 4:00 PM',
     venue: 'Quad AI, Bengaluru',
     ticketId: ticketId || 'INVALID',
   };
@@ -1163,6 +1215,7 @@ export async function verifyPublicTicketQr(params: {
           ? 'This ticket has been revoked and is no longer valid for event entry.'
           : 'This registration payment was rejected. Entry is not permitted.',
       registrationCode: built.registrationCode,
+      registrationType: built.registrationType,
       participantOrTeamName: built.teamOrIndividualName,
       passCategoryLabel: built.passCategoryLabel,
       categoriesDisplay: built.categoriesDisplay,
@@ -1179,6 +1232,7 @@ export async function verifyPublicTicketQr(params: {
       message:
         'Payment has not been verified for this registration. Passes are valid only after admin confirmation.',
       registrationCode: built.registrationCode,
+      registrationType: built.registrationType,
       participantOrTeamName: built.teamOrIndividualName,
       passCategoryLabel: built.passCategoryLabel,
       categoriesDisplay: built.categoriesDisplay,
@@ -1191,8 +1245,12 @@ export async function verifyPublicTicketQr(params: {
     valid: true,
     status: 'verified',
     statusLabel: 'VALID TICKET',
-    message: 'Confirmed and payment verified for entry to ALFAAZ — UNFILTERED.',
+    message:
+      built.registrationType === 'AUDIENCE'
+        ? 'Confirmed Audience Pass (Watch Only) verified for entry to ALFAAZ — UNFILTERED.'
+        : 'Confirmed Participant Pass verified for entry to ALFAAZ — UNFILTERED.',
     registrationCode: built.registrationCode,
+    registrationType: built.registrationType,
     participantOrTeamName: built.teamOrIndividualName,
     passCategoryLabel: built.passCategoryLabel,
     categoriesDisplay: built.categoriesDisplay,

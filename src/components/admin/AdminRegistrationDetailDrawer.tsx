@@ -11,6 +11,7 @@ import {
   formatDateTime,
   formatInr,
   PAYMENT_STATUS_META,
+  REGISTRATION_TYPE_META,
 } from './AdminFormatters';
 
 interface AdminRegistrationDetailDrawerProps {
@@ -67,12 +68,21 @@ export function AdminRegistrationDetailDrawer({
             {/* Header */}
             <div className="flex items-start justify-between gap-4 border-b border-[#EAE7E0]/12 px-6 py-5">
               <div className="min-w-0">
-                <p className="font-mono-num text-xs tracking-wider text-[#00E5FF] uppercase">
-                  {registration.registrationCode || registration.id}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`border px-2 py-0.5 font-mono-num text-[10px] font-bold uppercase ${
+                      REGISTRATION_TYPE_META[registration.registrationType].borderClass
+                    }`}
+                  >
+                    {REGISTRATION_TYPE_META[registration.registrationType].label}
+                  </span>
+                  <p className="font-mono-num text-xs tracking-wider text-[#00E5FF] uppercase">
+                    {registration.registrationCode || registration.id}
+                  </p>
+                </div>
                 <h2
                   id="reg-drawer-title"
-                  className="mt-1 truncate font-display text-3xl font-black tracking-tight text-[#EAE7E0] uppercase"
+                  className="mt-1.5 truncate font-display text-3xl font-black tracking-tight text-[#EAE7E0] uppercase"
                 >
                   {registration.fullName}
                 </h2>
@@ -113,7 +123,9 @@ export function AdminRegistrationDetailDrawer({
 
                 <div className="text-right">
                   <p className="text-xs text-[#EAE7E0]/55">
-                    {ENTRY_TYPE_META[registration.entryType].label} Pass
+                    {registration.registrationType === 'AUDIENCE'
+                      ? 'Audience Pass (Watch Only)'
+                      : `${ENTRY_TYPE_META[registration.entryType].label} Pass`}
                   </p>
                   <p className="mt-0.5 font-mono-num text-2xl font-bold text-[#EAE7E0]">
                     {formatInr(registration.amountInr)}
@@ -121,10 +133,12 @@ export function AdminRegistrationDetailDrawer({
                 </div>
               </div>
 
-              {/* Participant & Contact Details */}
+              {/* Attendee / Participant & Contact Details */}
               <section>
                 <h3 className="border-b border-[#EAE7E0]/10 pb-2 text-xs font-semibold tracking-wider text-[#EAE7E0]/65 uppercase">
-                  Participant & Contact Details
+                  {registration.registrationType === 'AUDIENCE'
+                    ? 'Audience Attendee & Contact Details'
+                    : 'Participant & Contact Details'}
                 </h3>
                 <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 text-xs sm:grid-cols-2">
                   <div>
@@ -160,53 +174,76 @@ export function AdminRegistrationDetailDrawer({
                 </dl>
               </section>
 
-              {/* Performance & Team Details */}
+              {/* Pass & Rights / Performance Details */}
               <section>
                 <h3 className="border-b border-[#EAE7E0]/10 pb-2 text-xs font-semibold tracking-wider text-[#EAE7E0]/65 uppercase">
-                  Performance & Team Details
+                  {registration.registrationType === 'AUDIENCE'
+                    ? 'Audience Pass & Admission Scope'
+                    : 'Performance & Team Details'}
                 </h3>
-                <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 text-xs sm:grid-cols-2">
-                  <div>
-                    <dt className="text-[#EAE7E0]/55">Participation Type</dt>
-                    <dd
-                      className={`mt-0.5 font-semibold ${ENTRY_TYPE_META[registration.entryType].accentClass}`}
-                    >
-                      {ENTRY_TYPE_META[registration.entryType].label}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[#EAE7E0]/55">Categories</dt>
-                    <dd className="mt-0.5 text-[#EAE7E0]">{registration.categoriesDisplay}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[#EAE7E0]/55">Team / Stage Name</dt>
-                    <dd className="mt-0.5 text-[#EAE7E0]">
-                      {registration.teamOrIndividualName}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[#EAE7E0]/55">Participant Count</dt>
-                    <dd className="mt-0.5 font-mono-num text-[#EAE7E0]">
-                      {registration.participantCount}
-                    </dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt className="text-[#EAE7E0]/55">Participant Names</dt>
-                    <dd className="mt-0.5 whitespace-pre-wrap text-[#EAE7E0]">
-                      {registration.participantNames || '—'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[#EAE7E0]/55">Team Leader</dt>
-                    <dd className="mt-0.5 text-[#EAE7E0]">{registration.teamLeaderName}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[#EAE7E0]/55">Emergency Contact</dt>
-                    <dd className="mt-0.5 font-mono-num text-[#EAE7E0]">
-                      {registration.emergencyContactNumber}
-                    </dd>
-                  </div>
-                </dl>
+                {registration.registrationType === 'AUDIENCE' ? (
+                  <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 text-xs sm:grid-cols-2">
+                    <div>
+                      <dt className="text-[#EAE7E0]/55">Registration Type</dt>
+                      <dd className="mt-0.5 font-semibold text-[#00E5FF]">
+                        AUDIENCE PASS (₹59)
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[#EAE7E0]/55">Admission</dt>
+                      <dd className="mt-0.5 font-mono-num text-[#EAE7E0]">1 Person</dd>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-[#EAE7E0]/55">Rights Scope</dt>
+                      <dd className="mt-0.5 text-[#EAE7E0]">
+                        {registration.categoriesDisplay}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 text-xs sm:grid-cols-2">
+                    <div>
+                      <dt className="text-[#EAE7E0]/55">Participation Type</dt>
+                      <dd
+                        className={`mt-0.5 font-semibold ${ENTRY_TYPE_META[registration.entryType].accentClass}`}
+                      >
+                        {ENTRY_TYPE_META[registration.entryType].label}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[#EAE7E0]/55">Categories</dt>
+                      <dd className="mt-0.5 text-[#EAE7E0]">{registration.categoriesDisplay}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[#EAE7E0]/55">Team / Stage Name</dt>
+                      <dd className="mt-0.5 text-[#EAE7E0]">
+                        {registration.teamOrIndividualName}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[#EAE7E0]/55">Participant Count</dt>
+                      <dd className="mt-0.5 font-mono-num text-[#EAE7E0]">
+                        {registration.participantCount}
+                      </dd>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-[#EAE7E0]/55">Participant Names</dt>
+                      <dd className="mt-0.5 whitespace-pre-wrap text-[#EAE7E0]">
+                        {registration.participantNames || '—'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[#EAE7E0]/55">Team Leader</dt>
+                      <dd className="mt-0.5 text-[#EAE7E0]">{registration.teamLeaderName}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[#EAE7E0]/55">Emergency Contact</dt>
+                      <dd className="mt-0.5 font-mono-num text-[#EAE7E0]">
+                        {registration.emergencyContactNumber}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
               </section>
 
               {/* Payment & Verification Metadata */}

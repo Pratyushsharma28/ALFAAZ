@@ -550,7 +550,9 @@ export default function ParticipantPortal({
                       {qrResult.participantOrTeamName && (
                         <div>
                           <dt className="font-mono-num text-[10px] text-[#EAE7E0]/55 uppercase">
-                            Participant / Team
+                            {qrResult.registrationType === 'AUDIENCE'
+                              ? 'Attendee'
+                              : 'Participant / Team'}
                           </dt>
                           <dd className="mt-0.5 font-semibold text-[#EAE7E0]">
                             {qrResult.participantOrTeamName}
@@ -560,10 +562,14 @@ export default function ParticipantPortal({
                       {qrResult.passCategoryLabel && (
                         <div>
                           <dt className="font-mono-num text-[10px] text-[#EAE7E0]/55 uppercase">
-                            Pass &amp; Category
+                            {qrResult.registrationType === 'AUDIENCE'
+                              ? 'Pass & Rights'
+                              : 'Pass & Category'}
                           </dt>
                           <dd className="mt-0.5 font-semibold text-[#EAE7E0]">
-                            {qrResult.passCategoryLabel} · {qrResult.categoriesDisplay}
+                            {qrResult.registrationType === 'AUDIENCE'
+                              ? 'AUDIENCE PASS · Watch Only'
+                              : `${qrResult.passCategoryLabel} · ${qrResult.categoriesDisplay}`}
                           </dd>
                         </div>
                       )}
@@ -879,6 +885,17 @@ export default function ParticipantPortal({
                     <div className="flex flex-col gap-4 border-b border-[#EAE7E0]/12 pb-5 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <div className="flex flex-wrap items-center gap-2 text-xs text-[#EAE7E0]/65">
+                          <span
+                            className={`border px-2 py-0.5 font-mono-num text-[10px] font-bold tracking-[0.16em] uppercase ${
+                              reg.registrationType === 'AUDIENCE'
+                                ? 'border-[#00E5FF]/55 bg-[#06161C] text-[#00E5FF]'
+                                : 'border-[#FF1744]/55 bg-[#19060C] text-[#FF1744]'
+                            }`}
+                          >
+                            {reg.registrationType === 'AUDIENCE'
+                              ? 'AUDIENCE · WATCH ONLY'
+                              : 'PARTICIPANT PASS'}
+                          </span>
                           <span className="font-mono-num font-bold tracking-widest text-[#FF1744] uppercase">
                             {reg.eventName}
                           </span>
@@ -895,7 +912,9 @@ export default function ParticipantPortal({
                         </div>
 
                         <h3 className="mt-2 font-display text-3xl font-black tracking-tight text-[#EAE7E0] uppercase sm:text-4xl">
-                          {reg.teamOrIndividualName}
+                          {reg.registrationType === 'AUDIENCE'
+                            ? reg.participantName
+                            : reg.teamOrIndividualName}
                         </h3>
                         <p className="mt-1 font-mono-num text-xs text-[#EAE7E0]/65">
                           Registration Code:{' '}
@@ -942,7 +961,9 @@ export default function ParticipantPortal({
                     <dl className="mt-5 grid grid-cols-2 gap-4 text-xs sm:grid-cols-3 lg:grid-cols-6">
                       <div>
                         <dt className="font-mono-num text-[10px] tracking-widest text-[#EAE7E0]/50 uppercase">
-                          Lead / Participant
+                          {reg.registrationType === 'AUDIENCE'
+                            ? 'Attendee Name'
+                            : 'Lead / Participant'}
                         </dt>
                         <dd className="mt-1 font-semibold text-[#EAE7E0]">
                           {reg.participantName}
@@ -950,19 +971,23 @@ export default function ParticipantPortal({
                       </div>
                       <div>
                         <dt className="font-mono-num text-[10px] tracking-widest text-[#EAE7E0]/50 uppercase">
-                          Pass Category
+                          {reg.registrationType === 'AUDIENCE'
+                            ? 'Pass Type'
+                            : 'Pass Category'}
                         </dt>
                         <dd className="mt-1 font-semibold text-[#EAE7E0]">
-                          {reg.passCategoryLabel} ({reg.categoriesDisplay})
+                          {reg.registrationType === 'AUDIENCE'
+                            ? 'Audience Pass (Watch Only)'
+                            : `${reg.passCategoryLabel} (${reg.categoriesDisplay})`}
                         </dd>
                       </div>
                       <div>
                         <dt className="font-mono-num text-[10px] tracking-widest text-[#EAE7E0]/50 uppercase">
-                          Participants
+                          {reg.registrationType === 'AUDIENCE' ? 'Admission' : 'Participants'}
                         </dt>
                         <dd className="mt-1 inline-flex items-center gap-1 font-mono-num font-semibold text-[#EAE7E0]">
                           <Users className="h-3.5 w-3.5 text-[#00E5FF]" aria-hidden="true" />
-                          {reg.participantCount}
+                          {reg.registrationType === 'AUDIENCE' ? '1 Person' : reg.participantCount}
                         </dd>
                       </div>
                       <div>
@@ -997,7 +1022,7 @@ export default function ParticipantPortal({
                       </div>
                     </dl>
 
-                    {reg.participantNames && (
+                    {reg.registrationType !== 'AUDIENCE' && reg.participantNames && (
                       <p className="mt-3 text-xs text-[#EAE7E0]/65">
                         <span className="font-mono-num text-[10px] tracking-wider text-[#EAE7E0]/45 uppercase">
                           Member(s):{' '}

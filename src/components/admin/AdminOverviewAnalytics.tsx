@@ -18,12 +18,13 @@ import {
   CanonicalPaymentStatus,
   RealtimeConnectionStatus,
 } from '../../types/admin';
-import { EntryPassTierId } from '../../types/registration';
+import { EntryPassTierId, RegistrationType } from '../../types/registration';
 import {
   ENTRY_TYPE_META,
   formatDateTime,
   formatInr,
   PAYMENT_STATUS_META,
+  REGISTRATION_TYPE_META,
 } from './AdminFormatters';
 
 interface AdminOverviewAnalyticsProps {
@@ -32,7 +33,10 @@ interface AdminOverviewAnalyticsProps {
   errorMessage: string | null;
   realtimeStatus: RealtimeConnectionStatus;
   onRetry: () => void;
-  onOpenRegistrations: (presetEntryType?: 'all' | EntryPassTierId) => void;
+  onOpenRegistrations: (
+    presetEntryType?: 'all' | EntryPassTierId,
+    presetRegType?: 'all' | RegistrationType
+  ) => void;
   onOpenVerification: (presetStatus?: 'all' | CanonicalPaymentStatus) => void;
   onSelectRegistration: (reg: AdminRegistrationRecord) => void;
   onInspectSubmission: (sub: AdminPaymentSubmissionRecord) => void;
@@ -242,20 +246,84 @@ export function AdminOverviewAnalytics({
           />
         </div>
 
+        {/* Separated Participant vs Audience Split Cards */}
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onOpenRegistrations('all', 'PARTICIPANT')}
+            className="group flex cursor-pointer items-center justify-between gap-4 border border-[#FF1744]/30 bg-[#0B0B0D] px-5 py-4 text-left transition-colors hover:border-[#FF1744] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
+          >
+            <div>
+              <p className="font-mono-num text-[11px] font-bold tracking-[0.18em] text-[#FF1744] uppercase">
+                Participant Registrations (Performers)
+              </p>
+              <p className="mt-1 text-xs text-[#EAE7E0]/75">
+                <span className="font-mono-num text-[#C8F36B]">{stats.participantVerifiedCount}</span> verified ·{' '}
+                <span className="font-mono-num text-[#F59E0B]">{stats.participantPendingCount}</span> pending · Revenue{' '}
+                <span className="font-mono-num font-bold text-[#EAE7E0]">
+                  {formatInr(stats.participantVerifiedAmountInr)}
+                </span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono-num text-2xl font-bold text-[#EAE7E0]">
+                {stats.participantCount}
+              </span>
+              <ArrowUpRight className="h-4 w-4 text-[#EAE7E0]/45 group-hover:text-[#FF1744]" aria-hidden="true" />
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenRegistrations('all', 'AUDIENCE')}
+            className="group flex cursor-pointer items-center justify-between gap-4 border border-[#00E5FF]/35 bg-[#0B0B0D] px-5 py-4 text-left transition-colors hover:border-[#00E5FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
+          >
+            <div>
+              <p className="font-mono-num text-[11px] font-bold tracking-[0.18em] text-[#00E5FF] uppercase">
+                Audience Registrations (₹59 Watch Only)
+              </p>
+              <p className="mt-1 text-xs text-[#EAE7E0]/75">
+                <span className="font-mono-num text-[#C8F36B]">{stats.audienceVerifiedCount}</span> verified ·{' '}
+                <span className="font-mono-num text-[#F59E0B]">{stats.audiencePendingCount}</span> pending · Revenue{' '}
+                <span className="font-mono-num font-bold text-[#EAE7E0]">
+                  {formatInr(stats.audienceVerifiedAmountInr)}
+                </span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono-num text-2xl font-bold text-[#EAE7E0]">
+                {stats.audienceCount}
+              </span>
+              <ArrowUpRight className="h-4 w-4 text-[#EAE7E0]/45 group-hover:text-[#00E5FF]" aria-hidden="true" />
+            </div>
+          </button>
+        </div>
+
         {/* Pass Tier Quick Filter Strip */}
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {analytics.tierBreakdown.map((tier) => {
-            const meta = ENTRY_TYPE_META[tier.entryType];
+            const isAudienceTier = tier.key === 'audience';
+            const accentClass = isAudienceTier
+              ? 'text-[#00E5FF]'
+              : ENTRY_TYPE_META[tier.entryType].accentClass;
+            const titleLabel = isAudienceTier
+              ? 'Audience Pass (₹59)'
+              : `${ENTRY_TYPE_META[tier.entryType].label} Registrations`;
             return (
               <button
-                key={tier.entryType}
+                key={tier.key}
                 type="button"
-                onClick={() => onOpenRegistrations(tier.entryType)}
+                onClick={() =>
+                  onOpenRegistrations(
+                    isAudienceTier ? 'all' : tier.entryType,
+                    tier.registrationType
+                  )
+                }
                 className="group flex cursor-pointer items-center justify-between gap-3 border border-[#EAE7E0]/12 bg-[#0B0B0D] px-4 py-3 text-left transition-colors hover:border-[#EAE7E0]/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
               >
                 <div>
-                  <p className={`text-xs font-semibold ${meta.accentClass}`}>
-                    {meta.label} Registrations
+                  <p className={`text-xs font-semibold ${accentClass}`}>
+                    {titleLabel}
                   </p>
                   <p className="mt-0.5 text-[11px] text-[#EAE7E0]/55">
                     <span className="font-mono-num text-[#EAE7E0]/80">
@@ -595,12 +663,16 @@ export function AdminOverviewAnalytics({
               <div className="mt-2.5 divide-y divide-[#EAE7E0]/10 border border-[#EAE7E0]/12 bg-[#050505]">
                 {analytics.tierBreakdown.map((tier) => (
                   <div
-                    key={tier.entryType}
+                    key={tier.key}
                     className="flex items-center justify-between px-3.5 py-2.5 text-xs"
                   >
                     <div>
                       <span
-                        className={`font-semibold ${ENTRY_TYPE_META[tier.entryType].accentClass}`}
+                        className={`font-semibold ${
+                          tier.key === 'audience'
+                            ? 'text-[#00E5FF]'
+                            : ENTRY_TYPE_META[tier.entryType].accentClass
+                        }`}
                       >
                         {tier.label}
                       </span>
@@ -674,17 +746,36 @@ export function AdminOverviewAnalytics({
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span
+                          className={`border px-1.5 py-0.5 font-mono-num text-[10px] font-bold uppercase ${
+                            REGISTRATION_TYPE_META[reg.registrationType].borderClass
+                          }`}
+                        >
+                          {REGISTRATION_TYPE_META[reg.registrationType].shortLabel}
+                        </span>
                         <span className="font-mono-num text-[#00E5FF]">
                           {reg.registrationCode || reg.id.slice(0, 8)}
                         </span>
                         <span className="text-[#EAE7E0]/30">·</span>
-                        <span className={ENTRY_TYPE_META[reg.entryType].accentClass}>
-                          {ENTRY_TYPE_META[reg.entryType].label}
+                        <span
+                          className={
+                            reg.registrationType === 'AUDIENCE'
+                              ? 'text-[#00E5FF]'
+                              : ENTRY_TYPE_META[reg.entryType].accentClass
+                          }
+                        >
+                          {reg.registrationType === 'AUDIENCE'
+                            ? 'Watch Only'
+                            : ENTRY_TYPE_META[reg.entryType].label}
                         </span>
-                        <span className="text-[#EAE7E0]/30">·</span>
-                        <span className="truncate text-[#EAE7E0]/70">
-                          {reg.categoriesDisplay}
-                        </span>
+                        {reg.registrationType !== 'AUDIENCE' && (
+                          <>
+                            <span className="text-[#EAE7E0]/30">·</span>
+                            <span className="truncate text-[#EAE7E0]/70">
+                              {reg.categoriesDisplay}
+                            </span>
+                          </>
+                        )}
                       </div>
                       <p className="mt-1 truncate text-sm font-semibold text-[#EAE7E0]">
                         {reg.fullName}
@@ -756,6 +847,13 @@ export function AdminOverviewAnalytics({
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span
+                          className={`border px-1.5 py-0.5 font-mono-num text-[10px] font-bold uppercase ${
+                            REGISTRATION_TYPE_META[sub.registrationType].borderClass
+                          }`}
+                        >
+                          {REGISTRATION_TYPE_META[sub.registrationType].shortLabel}
+                        </span>
                         <span
                           className={`inline-flex items-center border px-2 py-0.5 text-[10px] font-semibold ${statusMeta.borderClass} ${statusMeta.textClass}`}
                         >

@@ -218,21 +218,37 @@ export default function TicketVerificationPage({
                 )}
 
                 <div>
-                  <span
-                    className={`inline-block border px-2.5 py-0.5 font-mono-num text-[11px] font-bold tracking-[0.2em] uppercase ${
-                      isValidTicket
-                        ? 'border-[#C8F36B]/60 bg-[#0D1A0E] text-[#C8F36B]'
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-block border px-2.5 py-0.5 font-mono-num text-[11px] font-bold tracking-[0.2em] uppercase ${
+                        isValidTicket
+                          ? 'border-[#C8F36B]/60 bg-[#0D1A0E] text-[#C8F36B]'
+                          : isRevokedOrUnverified
+                          ? 'border-[#FF6D00]/60 bg-[#1E1007] text-[#FF6D00]'
+                          : 'border-[#FF1744]/60 bg-[#1F070D] text-[#FF1744]'
+                      }`}
+                    >
+                      {isValidTicket
+                        ? 'VALID TICKET'
                         : isRevokedOrUnverified
-                        ? 'border-[#FF6D00]/60 bg-[#1E1007] text-[#FF6D00]'
-                        : 'border-[#FF1744]/60 bg-[#1F070D] text-[#FF1744]'
-                    }`}
-                  >
-                    {isValidTicket
-                      ? 'VALID TICKET'
-                      : isRevokedOrUnverified
-                      ? 'REVOKED / NOT VALID'
-                      : 'INVALID TICKET'}
-                  </span>
+                        ? 'REVOKED / NOT VALID'
+                        : 'INVALID TICKET'}
+                    </span>
+
+                    {result.registrationType && (
+                      <span
+                        className={`inline-block border px-2.5 py-0.5 font-mono-num text-[11px] font-bold tracking-[0.18em] uppercase ${
+                          result.registrationType === 'AUDIENCE'
+                            ? 'border-[#00E5FF]/60 bg-[#06161C] text-[#00E5FF]'
+                            : 'border-[#FF1744]/50 bg-[#19060C] text-[#FF1744]'
+                        }`}
+                      >
+                        {result.registrationType === 'AUDIENCE'
+                          ? 'AUDIENCE PASS · WATCH ONLY'
+                          : 'PARTICIPANT PASS'}
+                      </span>
+                    )}
+                  </div>
 
                   <h2 className="mt-2 font-display text-3xl font-black tracking-tight text-[#EAE7E0] uppercase sm:text-4xl">
                     {result.statusLabel}
@@ -271,7 +287,9 @@ export default function TicketVerificationPage({
               {result.participantOrTeamName && (
                 <div className="border border-[#EAE7E0]/12 bg-[#050505]/70 p-3.5">
                   <dt className="font-mono-num text-[10px] tracking-[0.18em] text-[#EAE7E0]/55 uppercase">
-                    Participant / Team Name
+                    {result.registrationType === 'AUDIENCE'
+                      ? 'Attendee Name'
+                      : 'Participant / Team Name'}
                   </dt>
                   <dd className="mt-1 font-display text-2xl font-black tracking-tight text-[#EAE7E0] uppercase">
                     {result.participantOrTeamName}
@@ -282,10 +300,14 @@ export default function TicketVerificationPage({
               {result.passCategoryLabel && (
                 <div className="border border-[#EAE7E0]/12 bg-[#050505]/70 p-3.5">
                   <dt className="font-mono-num text-[10px] tracking-[0.18em] text-[#EAE7E0]/55 uppercase">
-                    Pass Tier &amp; Category
+                    {result.registrationType === 'AUDIENCE'
+                      ? 'Pass Type & Access Scope'
+                      : 'Pass Tier & Category'}
                   </dt>
                   <dd className="mt-1 font-semibold text-[#EAE7E0]">
-                    {result.passCategoryLabel} · {result.categoriesDisplay || 'General'}
+                    {result.registrationType === 'AUDIENCE'
+                      ? 'AUDIENCE PASS · Watch Only (No Stage Performance Rights)'
+                      : `${result.passCategoryLabel} · ${result.categoriesDisplay || 'General'}`}
                   </dd>
                 </div>
               )}
@@ -297,7 +319,9 @@ export default function TicketVerificationPage({
                     Admitted Count
                   </dt>
                   <dd className="mt-1 font-mono-num font-bold text-[#EAE7E0]">
-                    {result.participantCount} Member(s)
+                    {result.registrationType === 'AUDIENCE'
+                      ? '1 Person (Watch Only)'
+                      : `${result.participantCount} Member(s)`}
                   </dd>
                 </div>
               )}

@@ -425,6 +425,9 @@ export default function StaffCheckinPortal() {
             <p className="mt-1 font-display text-2xl font-black text-[#EAE7E0] sm:text-3xl">
               {stats.totalValidTickets}
             </p>
+            <p className="mt-1 font-mono-num text-[10px] text-[#EAE7E0]/55">
+              Part: {stats.participantValidTickets} · Aud: {stats.audienceValidTickets}
+            </p>
           </div>
           <div className="border border-[#C8F36B]/30 bg-[#0B0B0D] p-4">
             <p className="font-mono-num text-[10px] tracking-wider text-[#C8F36B] uppercase">
@@ -432,6 +435,9 @@ export default function StaffCheckinPortal() {
             </p>
             <p className="mt-1 font-display text-2xl font-black text-[#C8F36B] sm:text-3xl">
               {stats.checkedInCount}
+            </p>
+            <p className="mt-1 font-mono-num text-[10px] text-[#EAE7E0]/60">
+              Part: {stats.participantCheckedInCount} · Aud: {stats.audienceCheckedInCount}
             </p>
           </div>
           <div className="border border-[#00E5FF]/25 bg-[#0B0B0D] p-4">
@@ -441,6 +447,9 @@ export default function StaffCheckinPortal() {
             <p className="mt-1 font-display text-2xl font-black text-[#00E5FF] sm:text-3xl">
               {stats.remainingCount}
             </p>
+            <p className="mt-1 font-mono-num text-[10px] text-[#EAE7E0]/55">
+              Unscanned valid passes
+            </p>
           </div>
           <div className="border border-[#EAE7E0]/12 bg-[#0B0B0D] p-4">
             <p className="font-mono-num text-[10px] tracking-wider text-[#EAE7E0]/55 uppercase">
@@ -448,6 +457,9 @@ export default function StaffCheckinPortal() {
             </p>
             <p className="mt-1 font-display text-2xl font-black text-[#EAE7E0] sm:text-3xl">
               {stats.checkInRatePercent}%
+            </p>
+            <p className="mt-1 font-mono-num text-[10px] text-[#EAE7E0]/55">
+              Shared QR gate
             </p>
           </div>
         </section>
@@ -516,7 +528,9 @@ export default function StaffCheckinPortal() {
                 aria-live="assertive"
                 className={`border-2 p-6 ${
                   lastResult.outcome === 'ENTRY_APPROVED'
-                    ? 'border-[#C8F36B] bg-[#0B160B]'
+                    ? lastResult.ticket?.registrationType === 'AUDIENCE'
+                      ? 'border-[#00E5FF] bg-[#061318]'
+                      : 'border-[#C8F36B] bg-[#0B160B]'
                     : lastResult.outcome === 'ALREADY_CHECKED_IN'
                       ? 'border-[#FF6D00] bg-[#191005]'
                       : 'border-[#FF1744] bg-[#19060B]'
@@ -525,25 +539,49 @@ export default function StaffCheckinPortal() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     {lastResult.outcome === 'ENTRY_APPROVED' ? (
-                      <CheckCircle2 className="h-8 w-8 shrink-0 text-[#C8F36B]" aria-hidden="true" />
+                      <CheckCircle2
+                        className={`h-8 w-8 shrink-0 ${
+                          lastResult.ticket?.registrationType === 'AUDIENCE'
+                            ? 'text-[#00E5FF]'
+                            : 'text-[#C8F36B]'
+                        }`}
+                        aria-hidden="true"
+                      />
                     ) : lastResult.outcome === 'ALREADY_CHECKED_IN' ? (
                       <AlertTriangle className="h-8 w-8 shrink-0 text-[#FF6D00]" aria-hidden="true" />
                     ) : (
                       <XCircle className="h-8 w-8 shrink-0 text-[#FF1744]" aria-hidden="true" />
                     )}
                     <div>
-                      <p
-                        className={`font-mono-num text-[11px] font-bold tracking-widest uppercase ${
-                          lastResult.outcome === 'ENTRY_APPROVED'
-                            ? 'text-[#C8F36B]'
-                            : lastResult.outcome === 'ALREADY_CHECKED_IN'
-                              ? 'text-[#FF6D00]'
-                              : 'text-[#FF1744]'
-                        }`}
-                      >
-                        Gate Verdict · {lastResult.scanMethod.toUpperCase()}
-                      </p>
-                      <h2 className="mt-0.5 font-display text-2xl font-black tracking-tight text-[#EAE7E0] uppercase">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p
+                          className={`font-mono-num text-[11px] font-bold tracking-widest uppercase ${
+                            lastResult.outcome === 'ENTRY_APPROVED'
+                              ? lastResult.ticket?.registrationType === 'AUDIENCE'
+                                ? 'text-[#00E5FF]'
+                                : 'text-[#C8F36B]'
+                              : lastResult.outcome === 'ALREADY_CHECKED_IN'
+                                ? 'text-[#FF6D00]'
+                                : 'text-[#FF1744]'
+                          }`}
+                        >
+                          Gate Verdict · {lastResult.scanMethod.toUpperCase()}
+                        </p>
+                        {lastResult.ticket && (
+                          <span
+                            className={`border px-2 py-0.5 font-mono-num text-[10px] font-bold tracking-wider uppercase ${
+                              lastResult.ticket.registrationType === 'AUDIENCE'
+                                ? 'border-[#00E5FF]/60 bg-[#071A21] text-[#00E5FF]'
+                                : 'border-[#FF1744]/55 bg-[#1B070D] text-[#FF1744]'
+                            }`}
+                          >
+                            {lastResult.ticket.registrationType === 'AUDIENCE'
+                              ? 'AUDIENCE PASS · WATCH ONLY'
+                              : 'PARTICIPANT PASS'}
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="mt-1 font-display text-2xl font-black tracking-tight text-[#EAE7E0] uppercase">
                         {lastResult.headline}
                       </h2>
                     </div>
@@ -574,7 +612,9 @@ export default function StaffCheckinPortal() {
                   <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-[#EAE7E0]/12 pt-4 text-xs">
                     <div>
                       <dt className="font-mono-num text-[10px] tracking-wider text-[#EAE7E0]/50 uppercase">
-                        Participant / Team
+                        {lastResult.ticket.registrationType === 'AUDIENCE'
+                          ? 'Attendee Name'
+                          : 'Participant / Team'}
                       </dt>
                       <dd className="mt-0.5 font-semibold text-[#EAE7E0]">
                         {lastResult.ticket.participantOrTeamName}
@@ -584,8 +624,16 @@ export default function StaffCheckinPortal() {
                       <dt className="font-mono-num text-[10px] tracking-wider text-[#EAE7E0]/50 uppercase">
                         Pass Tier
                       </dt>
-                      <dd className="mt-0.5 font-semibold text-[#C8F36B]">
-                        {lastResult.ticket.passCategoryLabel} ({lastResult.ticket.participantCount})
+                      <dd
+                        className={`mt-0.5 font-semibold ${
+                          lastResult.ticket.registrationType === 'AUDIENCE'
+                            ? 'text-[#00E5FF]'
+                            : 'text-[#C8F36B]'
+                        }`}
+                      >
+                        {lastResult.ticket.registrationType === 'AUDIENCE'
+                          ? 'AUDIENCE PASS (1 Person)'
+                          : `${lastResult.ticket.passCategoryLabel} (${lastResult.ticket.participantCount})`}
                       </dd>
                     </div>
                     <div>
@@ -606,7 +654,9 @@ export default function StaffCheckinPortal() {
                     </div>
                     <div className="col-span-2">
                       <dt className="font-mono-num text-[10px] tracking-wider text-[#EAE7E0]/50 uppercase">
-                        Categories
+                        {lastResult.ticket.registrationType === 'AUDIENCE'
+                          ? 'Rights Scope'
+                          : 'Categories'}
                       </dt>
                       <dd className="mt-0.5 text-[#EAE7E0]/85">
                         {lastResult.ticket.categoriesDisplay}
@@ -686,7 +736,18 @@ export default function StaffCheckinPortal() {
                         {item.participantOrTeamName}
                       </td>
                       <td className="px-4 py-3 font-mono-num text-[#EAE7E0]/75">
-                        {item.passCategoryLabel} ({item.participantCount})
+                        <span
+                          className={`mr-1.5 inline-block border px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                            item.registrationType === 'AUDIENCE'
+                              ? 'border-[#00E5FF]/50 bg-[#06161C] text-[#00E5FF]'
+                              : 'border-[#FF1744]/45 bg-[#19060C] text-[#FF1744]'
+                          }`}
+                        >
+                          {item.registrationType === 'AUDIENCE' ? 'Audience' : 'Participant'}
+                        </span>
+                        {item.registrationType === 'AUDIENCE'
+                          ? 'Watch Only (1)'
+                          : `${item.passCategoryLabel} (${item.participantCount})`}
                       </td>
                       <td className="px-4 py-3 font-mono-num text-[11px] uppercase text-[#00E5FF]">
                         {item.scanMethod}

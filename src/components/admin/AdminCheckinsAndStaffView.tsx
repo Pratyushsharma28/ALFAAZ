@@ -25,6 +25,7 @@ import type {
   AdminCheckInReportPayload,
   StaffUserListItem,
 } from '../../types/staff';
+import type { RegistrationType } from '../../types/registration';
 
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -47,6 +48,9 @@ export function AdminCheckinsAndStaffView() {
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [registrationTypeFilter, setRegistrationTypeFilter] = useState<'all' | RegistrationType>(
+    'all'
+  );
 
   // Authorize new staff form state
   const [staffName, setStaffName] = useState('');
@@ -86,16 +90,26 @@ export function AdminCheckinsAndStaffView() {
   const filteredCheckins = useMemo(() => {
     const items = report?.checkedInTickets ?? [];
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (item) =>
+    return items.filter((item) => {
+      if (registrationTypeFilter !== 'all' && item.registrationType !== registrationTypeFilter) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         item.ticketId.toLowerCase().includes(q) ||
         item.registrationCode.toLowerCase().includes(q) ||
         item.participantOrTeamName.toLowerCase().includes(q) ||
         item.fullName.toLowerCase().includes(q) ||
         item.checkedInByEmail.toLowerCase().includes(q)
-    );
-  }, [report?.checkedInTickets, searchQuery]);
+      );
+    });
+  }, [report?.checkedInTickets, searchQuery, registrationTypeFilter]);
+
+  const filteredAuditLogs = useMemo(() => {
+    const items = report?.auditLogs ?? [];
+    if (registrationTypeFilter === 'all') return items;
+    return items.filter((log) => log.registrationType === registrationTypeFilter);
+  }, [report?.auditLogs, registrationTypeFilter]);
 
   const handleAuthorizeStaff = async (e: FormEvent) => {
     e.preventDefault();
@@ -165,6 +179,10 @@ export function AdminCheckinsAndStaffView() {
     checkedInCount: 0,
     remainingCount: 0,
     checkInRatePercent: 0,
+    participantValidTickets: 0,
+    participantCheckedInCount: 0,
+    audienceValidTickets: 0,
+    audienceCheckedInCount: 0,
   };
 
   return (
@@ -230,7 +248,9 @@ export function AdminCheckinsAndStaffView() {
           <p className="mt-2 font-display text-3xl font-black text-[#EAE7E0]">
             {stats.totalValidTickets}
           </p>
-          <p className="mt-1 text-[11px] text-[#EAE7E0]/50">Verified paid non-revoked passes</p>
+          <p className="mt-1 font-mono-num text-[11px] text-[#EAE7E0]/55">
+            Participants: {stats.participantValidTickets} · Audience: {stats.audienceValidTickets}
+          </p>
         </div>
 
         <div className="border border-[#C8F36B]/35 bg-[#0B0B0D] p-5">
@@ -240,7 +260,9 @@ export function AdminCheckinsAndStaffView() {
           <p className="mt-2 font-display text-3xl font-black text-[#C8F36B]">
             {stats.checkedInCount}
           </p>
-          <p className="mt-1 text-[11px] text-[#EAE7E0]/50">Admitted at event gate</p>
+          <p className="mt-1 font-mono-num text-[11px] text-[#EAE7E0]/60">
+            Participants: {stats.participantCheckedInCount} · Audience: {stats.audienceCheckedInCount}
+          </p>
         </div>
 
         <div className="border border-[#00E5FF]/30 bg-[#0B0B0D] p-5">
@@ -441,19 +463,51 @@ export function AdminCheckinsAndStaffView() {
             </p>
           </div>
 
-          <div className="relative w-full sm:w-72">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-[#EAE7E0]/45"
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search ticket ID, reg code, guest..."
-              aria-label="Search checked-in tickets"
-              className="min-h-[38px] w-full border border-[#EAE7E0]/20 bg-[#050505] pr-3 pl-8 text-xs text-[#EAE7E0] outline-none placeholder:text-[#EAE7E0]/35 focus:border-[#00E5FF]"
-            />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-1" role="tablist" aria-label="Check-in registration type filter">
+              {(
+                [
+                  { id: 'all', label: 'All' },
+                  { id: 'PARTICIPANT', label: 'Participants' },
+                  { id: 'AUDIENCE', label: 'Audience' },
+                ] as const
+              ).map((tab) => {
+                const active = registrationTypeFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setRegistrationTypeFilter(tab.id)}
+                    className={`min-h-[34px] cursor-pointer border px-3 py-1 font-mono-num text-[11px] font-semibold uppercase transition-colors ${
+                      active
+                        ? tab.id === 'AUDIENCE'
+                          ? 'border-[#00E5FF] bg-[#00E5FF] text-[#050505]'
+                          : 'border-[#FF1744] bg-[#FF1744] text-[#EAE7E0]'
+                        : 'border-[#EAE7E0]/15 bg-[#050505] text-[#EAE7E0]/75 hover:border-[#EAE7E0]/40'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-[#EAE7E0]/45"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search ticket ID, reg code, guest..."
+                aria-label="Search checked-in tickets"
+                className="min-h-[38px] w-full border border-[#EAE7E0]/20 bg-[#050505] pr-3 pl-8 text-xs text-[#EAE7E0] outline-none placeholder:text-[#EAE7E0]/35 focus:border-[#00E5FF]"
+              />
+            </div>
           </div>
         </div>
 
@@ -468,7 +522,7 @@ export function AdminCheckinsAndStaffView() {
                 <tr className="border-b border-[#EAE7E0]/10 font-mono-num text-[10px] tracking-wider text-[#EAE7E0]/50 uppercase">
                   <th className="px-4 py-3">Ticket ID</th>
                   <th className="px-4 py-3">Guest / Team</th>
-                  <th className="px-4 py-3">Pass Tier</th>
+                  <th className="px-4 py-3">Pass Type</th>
                   <th className="px-4 py-3">Scanned By</th>
                   <th className="px-4 py-3">Checked-In At</th>
                   <th className="px-4 py-3 text-right">Admin Action</th>
@@ -485,10 +539,25 @@ export function AdminCheckinsAndStaffView() {
                     </td>
                     <td className="px-4 py-3">
                       <p className="font-semibold text-[#EAE7E0]">{item.participantOrTeamName}</p>
-                      <p className="text-[11px] text-[#EAE7E0]/60">Lead: {item.fullName}</p>
+                      {item.registrationType !== 'AUDIENCE' && (
+                        <p className="text-[11px] text-[#EAE7E0]/60">Lead: {item.fullName}</p>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-mono-num text-[#EAE7E0]/80">
-                      {item.passCategoryLabel} · {item.participantCount}
+                      <span
+                        className={`mr-1.5 inline-block border px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                          item.registrationType === 'AUDIENCE'
+                            ? 'border-[#00E5FF]/50 bg-[#06161C] text-[#00E5FF]'
+                            : 'border-[#FF1744]/45 bg-[#19060C] text-[#FF1744]'
+                        }`}
+                      >
+                        {item.registrationType === 'AUDIENCE' ? 'AUDIENCE' : 'PARTICIPANT'}
+                      </span>
+                      <span>
+                        {item.registrationType === 'AUDIENCE'
+                          ? 'Watch Only (1)'
+                          : `${item.passCategoryLabel} · ${item.participantCount}`}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-[#EAE7E0]">{item.checkedInByName}</p>
@@ -529,16 +598,17 @@ export function AdminCheckinsAndStaffView() {
           </h2>
         </div>
 
-        {(report?.auditLogs ?? []).length === 0 ? (
+        {filteredAuditLogs.length === 0 ? (
           <p className="px-5 py-8 text-center text-xs text-[#EAE7E0]/50">
-            No check-in audit events recorded yet.
+            No matching check-in audit events recorded yet.
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] border-collapse text-left text-xs">
+            <table className="w-full min-w-[740px] border-collapse text-left text-xs">
               <thead>
                 <tr className="border-b border-[#EAE7E0]/10 font-mono-num text-[10px] tracking-wider text-[#EAE7E0]/50 uppercase">
                   <th className="px-4 py-3">Action</th>
+                  <th className="px-4 py-3">Pass Type</th>
                   <th className="px-4 py-3">Ticket ID</th>
                   <th className="px-4 py-3">Performed By</th>
                   <th className="px-4 py-3">Reason / Note</th>
@@ -546,7 +616,7 @@ export function AdminCheckinsAndStaffView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EAE7E0]/8">
-                {(report?.auditLogs ?? []).map((log) => (
+                {filteredAuditLogs.map((log) => (
                   <tr key={log.id}>
                     <td className="px-4 py-3">
                       <span
@@ -557,6 +627,17 @@ export function AdminCheckinsAndStaffView() {
                         }`}
                       >
                         {log.action}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-block border px-1.5 py-0.5 font-mono-num text-[10px] font-bold uppercase ${
+                          log.registrationType === 'AUDIENCE'
+                            ? 'border-[#00E5FF]/50 bg-[#06161C] text-[#00E5FF]'
+                            : 'border-[#FF1744]/45 bg-[#19060C] text-[#FF1744]'
+                        }`}
+                      >
+                        {log.registrationType}
                       </span>
                     </td>
                     <td className="px-4 py-3 font-mono-num text-[#EAE7E0]">{log.ticketId}</td>

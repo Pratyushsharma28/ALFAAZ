@@ -25,9 +25,9 @@ const PASS_TIERS: PassTier[] = [
     index: '01',
     name: 'Individual',
     price: '₹99',
-    scope: '1 Entry',
+    scope: '1 Performer',
     description:
-      'Solo performer entry or single listener pass for the entire 4–9 PM evening, with participation certificate and goodies.',
+      'Solo performer entry for the entire 4–9 PM evening across Dance, Singing, or Poetry, competing for the ₹10,000 cash prize pool.',
   },
   {
     id: 'couple',
@@ -291,9 +291,13 @@ function TicketPassCard({
 
 interface PricingSectionProps {
   onOpenRegistration: (options?: { passTier?: PassTierId }) => void;
+  onOpenAudienceRegistration: () => void;
 }
 
-export function PricingSection({ onOpenRegistration }: PricingSectionProps) {
+export function PricingSection({
+  onOpenRegistration,
+  onOpenAudienceRegistration,
+}: PricingSectionProps) {
   const [selectedTier, setSelectedTier] = useState<PassTierId>('individual');
   const [copiedSummary, setCopiedSummary] = useState(false);
   const shouldReduceMotion = useReducedMotion();
@@ -369,7 +373,7 @@ export function PricingSection({ onOpenRegistration }: PricingSectionProps) {
         <RevealBlock className="flex flex-col justify-between gap-6 pb-8 md:flex-row md:items-end">
           <div>
             <p className="font-mono-num text-xs font-medium tracking-widest text-[#C8F36B] uppercase">
-              03. Registration Pricing
+              03. Two Ways To Join
             </p>
             <h2 className="mt-3 font-display text-[clamp(3.25rem,6.5vw,5.75rem)] leading-[0.86] font-black tracking-tight text-[#EAE7E0] uppercase">
               Entry <span className="neon-text-crimson text-[#FF1744]">Passes</span>.
@@ -377,14 +381,25 @@ export function PricingSection({ onOpenRegistration }: PricingSectionProps) {
           </div>
 
           <p className="max-w-md text-sm leading-relaxed text-[#EAE7E0]/75">
-            Every registered participant receives an official participation certificate and goodies.
-            All passes register directly on this website with Razorpay checkout.
+            Choose <strong className="text-[#EAE7E0]">Participant Registration</strong> to perform
+            on stage (₹99 / ₹149 / ₹199), or <strong className="text-[#00E5FF]">Audience Registration</strong>{' '}
+            (₹59 fixed) to attend and watch the show. Certificates &amp; goodies are awarded to winners only.
           </p>
         </RevealBlock>
         <SectionDividerLine />
 
+        {/* Subsection A: Participant Registration */}
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
+          <p className="font-mono-num text-xs font-bold tracking-widest text-[#FF1744] uppercase">
+            A · Participant Passes (Stage Performers · Dance, Singing &amp; Poetry)
+          </p>
+          <span className="font-mono-num text-xs text-[#EAE7E0]/60 uppercase">
+            Includes stage performance slot + prize pool eligibility
+          </span>
+        </div>
+
         {/* Asymmetric Stepped Entry Pass Ticket Cards */}
-        <div className="mt-12 grid grid-cols-1 items-stretch gap-6 md:grid-cols-12">
+        <div className="mt-5 grid grid-cols-1 items-stretch gap-6 md:grid-cols-12">
           {PASS_TIERS.map((tier, idx) => (
             <TicketPassCard
               key={tier.id}
@@ -398,26 +413,25 @@ export function PricingSection({ onOpenRegistration }: PricingSectionProps) {
           ))}
         </div>
 
-        {/* Dark Crimson-Accent Integrated Registration Panel */}
-        <RevealBlock delay={0.1} className="mt-8">
+        {/* Dark Crimson-Accent Integrated Participant Registration Panel */}
+        <RevealBlock delay={0.08} className="mt-6">
           <InteractiveNeonCard
             accentColor="#FF1744"
-            hoverLift={-8}
-            hoverScale={1.015}
-            maxTilt={3}
-            className="flex flex-col justify-between gap-6 border border-[#FF1744]/45 bg-[#090507] p-6 shadow-[0_0_28px_rgba(255,23,68,0.14)] sm:p-8 lg:flex-row lg:items-center"
+            hoverLift={-6}
+            hoverScale={1.01}
+            maxTilt={2.5}
+            className="flex flex-col justify-between gap-6 border border-[#FF1744]/45 bg-[#090507] p-6 shadow-[0_0_28px_rgba(255,23,68,0.14)] sm:p-7 lg:flex-row lg:items-center"
           >
             <div className="relative z-10">
               <p className="font-mono-num text-xs font-semibold tracking-widest text-[#FF1744] uppercase">
-                Official Website Registration
+                Participant Registration · Stage Access
               </p>
               <h3 className="mt-1 font-display text-3xl font-black tracking-tight text-[#EAE7E0] uppercase sm:text-4xl">
-                {activeTier.name} Pass —{' '}
+                {activeTier.name} Performer Pass —{' '}
                 <span className="text-[#C8F36B] tabular-nums">{activeTier.price}</span>
               </h3>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#EAE7E0]/75">
-                Complete your entry and secure pass payment via Razorpay Checkout directly on this
-                website.
+                Register your solo act, duo, or crew and upload UPI proof directly on this website.
               </p>
             </div>
 
@@ -428,7 +442,7 @@ export function PricingSection({ onOpenRegistration }: PricingSectionProps) {
                 whileHover={shouldReduceMotion ? undefined : { scale: 1.03, y: -1 }}
                 whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
                 transition={{ duration: 0.16, ease: EDITORIAL_EASE }}
-                className="group inline-flex min-h-[44px] cursor-pointer items-center gap-2 border border-[#00E5FF]/40 bg-[#050505] px-4 py-2.5 text-xs font-semibold tracking-wider text-[#EAE7E0] uppercase transition-all duration-200 hover:border-[#00E5FF] hover:text-[#00E5FF] hover:shadow-[0_0_18px_rgba(0,229,255,0.3)] whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
+                className="group inline-flex min-h-[44px] cursor-pointer items-center gap-2 border border-[#EAE7E0]/25 bg-[#050505] px-4 py-2.5 text-xs font-semibold tracking-wider text-[#EAE7E0] uppercase transition-all duration-200 hover:border-[#C8F36B] hover:text-[#C8F36B] whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8F36B]"
               >
                 {copiedSummary ? (
                   <>
@@ -441,7 +455,7 @@ export function PricingSection({ onOpenRegistration }: PricingSectionProps) {
                 ) : (
                   <>
                     <Copy
-                      className="h-4 w-4 text-[#00E5FF] transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6"
+                      className="h-4 w-4 text-[#C8F36B] transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6"
                       aria-hidden="true"
                     />
                     Copy Pass Summary
@@ -457,7 +471,69 @@ export function PricingSection({ onOpenRegistration }: PricingSectionProps) {
                 transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
                 className="neon-cta-breathe group inline-flex min-h-[44px] cursor-pointer items-center gap-2 border border-[#FF1744] bg-[#FF1744] px-6 py-3 font-display text-lg font-extrabold tracking-wider text-[#EAE7E0] uppercase transition-all duration-200 hover:bg-[#ff2b54] hover:shadow-[0_0_34px_rgba(255,23,68,0.8)] whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EAE7E0]"
               >
-                <span>Register Now</span>
+                <span>Register as Participant</span>
+                <ArrowUpRight
+                  className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:rotate-12"
+                  aria-hidden="true"
+                />
+              </motion.button>
+            </div>
+          </InteractiveNeonCard>
+        </RevealBlock>
+
+        {/* Subsection B: Dedicated Audience Registration (Watch Only · ₹59 Fixed) */}
+        <div className="mt-12 flex flex-wrap items-center justify-between gap-3">
+          <p className="font-mono-num text-xs font-bold tracking-widest text-[#00E5FF] uppercase">
+            B · Audience Pass (Watch Only · Fixed ₹59 Per Person)
+          </p>
+          <span className="font-mono-num text-xs text-[#EAE7E0]/60 uppercase">
+            Does not include stage participation or performance rights
+          </span>
+        </div>
+
+        <RevealBlock delay={0.12} className="mt-5">
+          <InteractiveNeonCard
+            accentColor="#00E5FF"
+            hoverLift={-6}
+            hoverScale={1.01}
+            maxTilt={2.5}
+            className="flex flex-col justify-between gap-6 border border-[#00E5FF]/55 bg-[#050C10] p-6 shadow-[0_0_30px_rgba(0,229,255,0.14)] sm:p-8 lg:flex-row lg:items-center"
+          >
+            <div className="relative z-10 max-w-2xl">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="border border-[#00E5FF]/55 bg-[#041820] px-2.5 py-0.5 font-mono-num text-[11px] font-bold tracking-widest text-[#00E5FF] uppercase">
+                  AUDIENCE REGISTRATION
+                </span>
+                <span className="font-mono-num text-xs text-[#EAE7E0]/75 uppercase">
+                  1 Person · Watch Only · Quad AI Auditorium
+                </span>
+              </div>
+
+              <h3 className="mt-3 font-display text-4xl font-black tracking-tight text-[#EAE7E0] uppercase sm:text-5xl">
+                Audience Pass —{' '}
+                <span className="text-[#00E5FF] tabular-nums">₹59</span>
+              </h3>
+
+              <p className="mt-2.5 text-sm leading-relaxed text-[#EAE7E0]/80">
+                Coming just to vibe, cheer, and witness the live performances? Grab an Audience Pass
+                for ₹59 fixed per person. Audience registration grants full evening auditorium entry
+                (4:00 PM – 9:00 PM) and does <strong>not</strong> include stage performance or competition rights.
+              </p>
+            </div>
+
+            <div className="relative z-10 flex flex-col items-start gap-3 shrink-0 lg:items-end">
+              <div className="font-mono-num text-xs text-[#EAE7E0]/70 uppercase">
+                Fixed Fee: <span className="font-bold text-[#C8F36B]">₹59 / Person</span>
+              </div>
+              <motion.button
+                type="button"
+                onClick={onOpenAudienceRegistration}
+                whileHover={shouldReduceMotion ? undefined : { scale: 1.04, y: -2 }}
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+                transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
+                className="group inline-flex min-h-[48px] cursor-pointer items-center gap-2 border border-[#00E5FF] bg-[#00E5FF] px-7 py-3 font-display text-xl font-extrabold tracking-wider text-[#050505] uppercase transition-all duration-200 hover:bg-[#33ebff] hover:shadow-[0_0_28px_rgba(0,229,255,0.6)] whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EAE7E0]"
+              >
+                <span>Register as Audience · ₹59</span>
                 <ArrowUpRight
                   className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:rotate-12"
                   aria-hidden="true"

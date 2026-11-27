@@ -13,6 +13,8 @@ import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
 import { EDITORIAL_EASE } from './components/MotionPrimitives';
 import { RegistrationModal } from './components/RegistrationModal';
+import { AudienceRegistrationModal } from './components/AudienceRegistrationModal';
+import { RegistrationChooserModal } from './components/RegistrationChooserModal';
 import { EntryPassTierId, ParticipationCategory } from './types/registration';
 
 const AdminPortal = lazy(() => import('./components/admin/AdminPortal'));
@@ -64,7 +66,9 @@ export default function App() {
     typeof window !== 'undefined' ? window.location.pathname : '/'
   );
   const [isIntroOpen, setIsIntroOpen] = useState<boolean>(getInitialIntroOpen);
+  const [chooserOpen, setChooserOpen] = useState<boolean>(false);
   const [registrationOpen, setRegistrationOpen] = useState<boolean>(false);
+  const [audienceModalOpen, setAudienceModalOpen] = useState<boolean>(false);
   const [regPreset, setRegPreset] = useState<{
     passTier: EntryPassTierId;
     category?: ParticipationCategory;
@@ -164,8 +168,7 @@ export default function App() {
             onNavigateHome={() => navigateTo('/')}
             onOpenRegistration={() => {
               navigateTo('/');
-              setRegPreset({ passTier: 'individual' });
-              setRegistrationOpen(true);
+              setChooserOpen(true);
             }}
           />
         </Suspense>
@@ -177,11 +180,25 @@ export default function App() {
     passTier?: EntryPassTierId;
     category?: ParticipationCategory;
   }) => {
+    setChooserOpen(false);
+    setAudienceModalOpen(false);
     setRegPreset({
       passTier: options?.passTier ?? 'individual',
       category: options?.category,
     });
     setRegistrationOpen(true);
+  };
+
+  const openAudienceRegistration = () => {
+    setChooserOpen(false);
+    setRegistrationOpen(false);
+    setAudienceModalOpen(true);
+  };
+
+  const openRegistrationChooser = () => {
+    setRegistrationOpen(false);
+    setAudienceModalOpen(false);
+    setChooserOpen(true);
   };
 
   return (
@@ -196,12 +213,27 @@ export default function App() {
         {/* Opening Official Poster Experience */}
         <IntroPopup isOpen={isIntroOpen} onClose={() => setIsIntroOpen(false)} />
 
-        {/* Integrated Multi-Step Registration + Razorpay Checkout Experience */}
+        {/* Two-Option Registration Chooser (Participant vs Audience) */}
+        <RegistrationChooserModal
+          isOpen={chooserOpen}
+          onClose={() => setChooserOpen(false)}
+          onChooseParticipant={() => openRegistration({ passTier: 'individual' })}
+          onChooseAudience={openAudienceRegistration}
+        />
+
+        {/* Participant Multi-Step Registration + Payment Proof Experience */}
         <RegistrationModal
           isOpen={registrationOpen}
           initialPassTier={regPreset.passTier}
           initialCategory={regPreset.category}
           onClose={() => setRegistrationOpen(false)}
+        />
+
+        {/* Dedicated Audience (Watch-Only · ₹59) Registration Experience */}
+        <AudienceRegistrationModal
+          isOpen={audienceModalOpen}
+          onClose={() => setAudienceModalOpen(false)}
+          onSwitchToParticipant={() => openRegistration({ passTier: 'individual' })}
         />
 
         {/* Main Website Shell — smoothly revealed when IntroPopup closes */}
@@ -216,7 +248,7 @@ export default function App() {
               ? { duration: 0.01 }
               : { duration: 0.55, ease: EDITORIAL_EASE }
           }
-          aria-hidden={isIntroOpen || registrationOpen}
+          aria-hidden={isIntroOpen || chooserOpen || registrationOpen || audienceModalOpen}
           className="relative flex min-h-screen flex-col"
         >
           <a
@@ -226,19 +258,23 @@ export default function App() {
             Skip to main content
           </a>
           <Navbar
-            onOpenRegistration={() => openRegistration()}
+            onOpenRegistration={openRegistrationChooser}
             onOpenMyTickets={() => navigateTo('/my-tickets')}
           />
 
           <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
             <HeroSection
               onOpenPoster={() => setIsIntroOpen(true)}
-              onOpenRegistration={() => openRegistration()}
+              onOpenRegistration={openRegistrationChooser}
+              onOpenAudienceRegistration={openAudienceRegistration}
             />
             <CountdownSection />
             <AboutSection />
             <CategoriesSection onOpenRegistration={openRegistration} />
-            <PricingSection onOpenRegistration={openRegistration} />
+            <PricingSection
+              onOpenRegistration={openRegistration}
+              onOpenAudienceRegistration={openAudienceRegistration}
+            />
             <PrizePoolSection />
             <EventDetailsSection />
             <FaqSection />

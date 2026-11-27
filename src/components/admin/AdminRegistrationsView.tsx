@@ -15,12 +15,13 @@ import {
   AdminRegistrationRecord,
   CanonicalPaymentStatus,
 } from '../../types/admin';
-import { EntryPassTierId, ParticipationCategory } from '../../types/registration';
+import { EntryPassTierId, ParticipationCategory, RegistrationType } from '../../types/registration';
 import {
   ENTRY_TYPE_META,
   formatInr,
   formatShortDate,
   PAYMENT_STATUS_META,
+  REGISTRATION_TYPE_META,
 } from './AdminFormatters';
 
 interface AdminRegistrationsViewProps {
@@ -28,6 +29,8 @@ interface AdminRegistrationsViewProps {
   submissionsByRegId: Map<string, AdminPaymentSubmissionRecord>;
   isLoading: boolean;
   errorMessage: string | null;
+  registrationTypeFilter?: 'all' | RegistrationType;
+  onRegistrationTypeFilterChange?: (next: 'all' | RegistrationType) => void;
   entryTypeFilter?: 'all' | EntryPassTierId;
   onEntryTypeFilterChange?: (next: 'all' | EntryPassTierId) => void;
   onRetry: () => void;
@@ -43,6 +46,8 @@ export function AdminRegistrationsView({
   submissionsByRegId,
   isLoading,
   errorMessage,
+  registrationTypeFilter: controlledRegType,
+  onRegistrationTypeFilterChange,
   entryTypeFilter: controlledEntryType,
   onEntryTypeFilterChange,
   onRetry,
@@ -51,6 +56,12 @@ export function AdminRegistrationsView({
   onExportCsv,
 }: AdminRegistrationsViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [uncontrolledRegType, setUncontrolledRegType] = useState<'all' | RegistrationType>('all');
+  const registrationTypeFilter = controlledRegType ?? uncontrolledRegType;
+  const setRegistrationTypeFilter = (next: 'all' | RegistrationType) => {
+    setUncontrolledRegType(next);
+    onRegistrationTypeFilterChange?.(next);
+  };
   const [uncontrolledEntryType, setUncontrolledEntryType] = useState<'all' | EntryPassTierId>('all');
   const entryTypeFilter = controlledEntryType ?? uncontrolledEntryType;
   const setEntryTypeFilter = (next: 'all' | EntryPassTierId) => {
@@ -63,11 +74,28 @@ export function AdminRegistrationsView({
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
+  const typeCounts = useMemo(
+    () => ({
+      all: registrations.length,
+      PARTICIPANT: registrations.filter((r) => r.registrationType === 'PARTICIPANT').length,
+      AUDIENCE: registrations.filter((r) => r.registrationType === 'AUDIENCE').length,
+    }),
+    [registrations]
+  );
+
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
 
     const matched = registrations.filter((reg) => {
-      if (entryTypeFilter !== 'all' && reg.entryType !== entryTypeFilter) return false;
+      if (registrationTypeFilter !== 'all' && reg.registrationType !== registrationTypeFilter) {
+        return false;
+      }
+      if (
+        entryTypeFilter !== 'all' &&
+        (reg.registrationType !== 'PARTICIPANT' || reg.entryType !== entryTypeFilter)
+      ) {
+        return false;
+      }
       if (categoryFilter !== 'all' && !reg.categories.includes(categoryFilter)) return false;
       if (statusFilter !== 'all' && reg.paymentStatus !== statusFilter) return false;
 
@@ -76,6 +104,7 @@ export function AdminRegistrationsView({
       const haystack = [
         reg.id,
         reg.registrationCode,
+        reg.registrationType,
         reg.fullName,
         reg.email,
         reg.mobileNumber,
@@ -104,7 +133,15 @@ export function AdminRegistrationsView({
     });
 
     return sorted;
-  }, [registrations, searchQuery, entryTypeFilter, categoryFilter, statusFilter, sortOrder]);
+  }, [
+    registrations,
+    searchQuery,
+    registrationTypeFilter,
+    entryTypeFilter,
+    categoryFilter,
+    statusFilter,
+    sortOrder,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -115,6 +152,7 @@ export function AdminRegistrationsView({
 
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
+    registrationTypeFilter !== 'all' ||
     entryTypeFilter !== 'all' ||
     categoryFilter !== 'all' ||
     statusFilter !== 'all' ||
@@ -122,6 +160,7 @@ export function AdminRegistrationsView({
 
   const resetFilters = () => {
     setSearchQuery('');
+    setRegistrationTypeFilter('all');
     setEntryTypeFilter('all');
     setCategoryFilter('all');
     setStatusFilter('all');
@@ -192,6 +231,48 @@ export function AdminRegistrationsView({
         </div>
       </div>
 
+      {/* Registration Type Segmentation Bar (All / Participants / Audience) */}
+      <div
+        className="flex flex-wrap items-center gap-2 border border-[#EAE7E0]/12 bg-[#0B0B0D] px-4 py-3"
+        role="tablist"
+        aria-label="Filter by registration type"
+      >
+        {(
+          [
+            { id: 'all', label: `All (${typeCounts.all})` },
+            { id: 'PARTICIPANT', label: `Participants (${typeCounts.PARTICIPANT})` },
+            { id: 'AUDIENCE', label: `Audience · ₹59 (${typeCounts.AUDIENCE})` },
+          ] as const
+        ).map((tab) => {
+          const active = registrationTypeFilter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => {
+                setRegistrationTypeFilter(tab.id);
+                if (tab.id === 'AUDIENCE') {
+                  setEntryTypeFilter('all');
+                  setCategoryFilter('all');
+                }
+                setCurrentPage(1);
+              }}
+              className={`min-h-[36px] cursor-pointer border px-3.5 py-1.5 font-mono-num text-xs font-semibold whitespace-nowrap transition-colors ${
+                active
+                  ? tab.id === 'AUDIENCE'
+                    ? 'border-[#00E5FF] bg-[#00E5FF] text-[#050505]'
+                    : 'border-[#FF1744] bg-[#FF1744] text-[#EAE7E0]'
+                  : 'border-[#EAE7E0]/15 bg-[#050505] text-[#EAE7E0]/75 hover:border-[#EAE7E0]/40 hover:text-[#EAE7E0]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Search & Filters Bar */}
       <div className="grid grid-cols-1 gap-3 border border-[#EAE7E0]/12 bg-[#0B0B0D] p-4 md:grid-cols-2 xl:grid-cols-[1.6fr_1fr_1fr_1fr_1fr]">
         <div className="relative md:col-span-2 xl:col-span-1">
@@ -213,15 +294,16 @@ export function AdminRegistrationsView({
         </div>
 
         <select
-          aria-label="Filter by participation type"
+          aria-label="Filter by participant pass tier"
           value={entryTypeFilter}
+          disabled={registrationTypeFilter === 'AUDIENCE'}
           onChange={(e) => {
             setEntryTypeFilter(e.target.value as 'all' | EntryPassTierId);
             setCurrentPage(1);
           }}
-          className="min-h-[40px] border border-[#EAE7E0]/18 bg-[#050505] px-3 text-xs text-[#EAE7E0] focus:border-[#FF1744] focus:outline-none"
+          className="min-h-[40px] border border-[#EAE7E0]/18 bg-[#050505] px-3 text-xs text-[#EAE7E0] focus:border-[#FF1744] focus:outline-none disabled:opacity-45"
         >
-          <option value="all">All Types</option>
+          <option value="all">All Performer Tiers</option>
           <option value="individual">Individual (₹99)</option>
           <option value="couple">Couple (₹149)</option>
           <option value="group">Group (₹199)</option>
@@ -341,17 +423,25 @@ export function AdminRegistrationsView({
 
                       <td className="px-4 py-3.5 align-top">
                         <div className="font-semibold text-[#EAE7E0]">{reg.fullName}</div>
-                        <div className="mt-0.5 text-[11px] text-[#EAE7E0]/65">
-                          {reg.teamOrIndividualName !== '—'
-                            ? `${reg.teamOrIndividualName} · `
-                            : ''}
-                          <span className="font-mono-num">{reg.participantCount}</span>{' '}
-                          {reg.participantCount === 1 ? 'member' : 'members'}
-                        </div>
-                        {reg.teamLeaderName !== '—' && (
-                          <div className="mt-0.5 text-[11px] text-[#EAE7E0]/50">
-                            Lead: {reg.teamLeaderName}
+                        {reg.registrationType === 'AUDIENCE' ? (
+                          <div className="mt-0.5 text-[11px] text-[#00E5FF]">
+                            Audience Attendee · 1 Person
                           </div>
+                        ) : (
+                          <>
+                            <div className="mt-0.5 text-[11px] text-[#EAE7E0]/65">
+                              {reg.teamOrIndividualName !== '—'
+                                ? `${reg.teamOrIndividualName} · `
+                                : ''}
+                              <span className="font-mono-num">{reg.participantCount}</span>{' '}
+                              {reg.participantCount === 1 ? 'member' : 'members'}
+                            </div>
+                            {reg.teamLeaderName !== '—' && (
+                              <div className="mt-0.5 text-[11px] text-[#EAE7E0]/50">
+                                Lead: {reg.teamLeaderName}
+                              </div>
+                            )}
+                          </>
                         )}
                       </td>
 
@@ -369,8 +459,23 @@ export function AdminRegistrationsView({
                       </td>
 
                       <td className="px-4 py-3.5 align-top">
-                        <div className={`font-semibold ${entryMeta.accentClass}`}>
-                          {entryMeta.label}
+                        <span
+                          className={`inline-block border px-1.5 py-0.5 font-mono-num text-[10px] font-bold uppercase ${
+                            REGISTRATION_TYPE_META[reg.registrationType].borderClass
+                          }`}
+                        >
+                          {REGISTRATION_TYPE_META[reg.registrationType].label}
+                        </span>
+                        <div
+                          className={`mt-1 font-semibold ${
+                            reg.registrationType === 'AUDIENCE'
+                              ? 'text-[#00E5FF]'
+                              : entryMeta.accentClass
+                          }`}
+                        >
+                          {reg.registrationType === 'AUDIENCE'
+                            ? 'Audience (₹59)'
+                            : entryMeta.label}
                         </div>
                         <div className="mt-0.5 text-[11px] text-[#EAE7E0]/75">
                           {reg.categoriesDisplay}
@@ -461,8 +566,21 @@ export function AdminRegistrationsView({
                   </div>
 
                   <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
-                    <span className={`font-semibold ${entryMeta.accentClass}`}>
-                      {entryMeta.label}
+                    <span
+                      className={`border px-1.5 py-0.5 font-mono-num text-[10px] font-bold uppercase ${
+                        REGISTRATION_TYPE_META[reg.registrationType].borderClass
+                      }`}
+                    >
+                      {REGISTRATION_TYPE_META[reg.registrationType].shortLabel}
+                    </span>
+                    <span
+                      className={`font-semibold ${
+                        reg.registrationType === 'AUDIENCE'
+                          ? 'text-[#00E5FF]'
+                          : entryMeta.accentClass
+                      }`}
+                    >
+                      {reg.registrationType === 'AUDIENCE' ? 'Watch Only' : entryMeta.label}
                     </span>
                     <span className="text-[#EAE7E0]/35">·</span>
                     <span className="text-[#EAE7E0]/75">{reg.categoriesDisplay}</span>

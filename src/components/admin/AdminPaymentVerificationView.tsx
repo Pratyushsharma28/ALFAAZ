@@ -11,11 +11,13 @@ import {
   AdminPaymentSubmissionRecord,
   CanonicalPaymentStatus,
 } from '../../types/admin';
+import type { RegistrationType } from '../../types/registration';
 import {
   ENTRY_TYPE_META,
   formatDateTime,
   formatInr,
   PAYMENT_STATUS_META,
+  REGISTRATION_TYPE_META,
 } from './AdminFormatters';
 
 interface AdminPaymentVerificationViewProps {
@@ -45,25 +47,43 @@ export function AdminPaymentVerificationView({
     setUncontrolledStatusFilter(next);
     onStatusFilterChange?.(next);
   };
+  const [registrationTypeFilter, setRegistrationTypeFilter] = useState<'all' | RegistrationType>(
+    'all'
+  );
   const [searchQuery, setSearchQuery] = useState('');
+
+  const typeCounts = useMemo(
+    () => ({
+      all: submissions.length,
+      PARTICIPANT: submissions.filter((s) => s.registrationType === 'PARTICIPANT').length,
+      AUDIENCE: submissions.filter((s) => s.registrationType === 'AUDIENCE').length,
+    }),
+    [submissions]
+  );
+
+  const scopedByType = useMemo(() => {
+    if (registrationTypeFilter === 'all') return submissions;
+    return submissions.filter((s) => s.registrationType === registrationTypeFilter);
+  }, [submissions, registrationTypeFilter]);
 
   const counts = useMemo(() => {
     return {
-      all: submissions.length,
-      pending: submissions.filter((s) => s.status === 'pending').length,
-      verified: submissions.filter((s) => s.status === 'verified').length,
-      rejected: submissions.filter((s) => s.status === 'rejected').length,
+      all: scopedByType.length,
+      pending: scopedByType.filter((s) => s.status === 'pending').length,
+      verified: scopedByType.filter((s) => s.status === 'verified').length,
+      rejected: scopedByType.filter((s) => s.status === 'rejected').length,
     };
-  }, [submissions]);
+  }, [scopedByType]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return submissions.filter((sub) => {
+    return scopedByType.filter((sub) => {
       if (statusFilter !== 'all' && sub.status !== statusFilter) return false;
       if (!q) return true;
       const haystack = [
         sub.registrationCode,
         sub.registrationId,
+        sub.registrationType,
         sub.participantName,
         sub.teamOrIndividualName,
         sub.email,
@@ -76,7 +96,7 @@ export function AdminPaymentVerificationView({
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [submissions, statusFilter, searchQuery]);
+  }, [scopedByType, statusFilter, searchQuery]);
 
   if (errorMessage) {
     return (
@@ -121,6 +141,41 @@ export function AdminPaymentVerificationView({
           <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span>Uploaded proofs are never auto-verified</span>
         </div>
+      </div>
+
+      {/* Registration Type Filter Strip */}
+      <div
+        className="flex flex-wrap items-center gap-2 border border-[#EAE7E0]/12 bg-[#0B0B0D] px-4 py-3"
+        role="tablist"
+        aria-label="Registration type filter"
+      >
+        {(
+          [
+            { id: 'all', label: `All Submissions (${typeCounts.all})` },
+            { id: 'PARTICIPANT', label: `Participants (${typeCounts.PARTICIPANT})` },
+            { id: 'AUDIENCE', label: `Audience · ₹59 (${typeCounts.AUDIENCE})` },
+          ] as const
+        ).map((tab) => {
+          const active = registrationTypeFilter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setRegistrationTypeFilter(tab.id)}
+              className={`min-h-[36px] cursor-pointer border px-3.5 py-1.5 font-mono-num text-xs font-semibold whitespace-nowrap transition-colors ${
+                active
+                  ? tab.id === 'AUDIENCE'
+                    ? 'border-[#00E5FF] bg-[#00E5FF] text-[#050505]'
+                    : 'border-[#FF1744] bg-[#FF1744] text-[#EAE7E0]'
+                  : 'border-[#EAE7E0]/15 bg-[#050505] text-[#EAE7E0]/75 hover:border-[#EAE7E0]/40 hover:text-[#EAE7E0]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Filter Tabs + Search */}
@@ -206,6 +261,14 @@ export function AdminPaymentVerificationView({
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex flex-wrap items-center gap-2.5">
                     <span
+                      className={`border px-2 py-0.5 font-mono-num text-[10px] font-bold uppercase ${
+                        REGISTRATION_TYPE_META[sub.registrationType].borderClass
+                      }`}
+                    >
+                      {REGISTRATION_TYPE_META[sub.registrationType].label}
+                    </span>
+
+                    <span
                       className={`inline-flex items-center gap-1.5 border px-2 py-0.5 text-[11px] font-semibold ${statusMeta.borderClass} ${statusMeta.textClass}`}
                     >
                       {sub.status === 'verified' ? (
@@ -222,8 +285,14 @@ export function AdminPaymentVerificationView({
                       {sub.registrationCode || sub.registrationId || sub.id}
                     </span>
 
-                    <span className={`text-xs font-semibold ${entryMeta.accentClass}`}>
-                      {entryMeta.label} ·{' '}
+                    <span
+                      className={`text-xs font-semibold ${
+                        sub.registrationType === 'AUDIENCE'
+                          ? 'text-[#00E5FF]'
+                          : entryMeta.accentClass
+                      }`}
+                    >
+                      {sub.registrationType === 'AUDIENCE' ? 'Audience Pass' : entryMeta.label} ·{' '}
                       <span className="font-mono-num">{formatInr(sub.amountInr)}</span>
                     </span>
                   </div>

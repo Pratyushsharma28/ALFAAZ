@@ -1,4 +1,4 @@
-import { EntryPassTierId, ParticipationCategory } from './registration';
+import { EntryPassTierId, ParticipationCategory, RegistrationType } from './registration';
 
 export type CanonicalPaymentStatus = 'pending' | 'verified' | 'rejected';
 
@@ -16,6 +16,7 @@ export interface AdminUserRecord {
 export interface AdminRegistrationRecord {
   id: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   fullName: string;
   email: string;
   mobileNumber: string;
@@ -48,6 +49,7 @@ export interface AdminPaymentSubmissionRecord {
   id: string;
   registrationId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   participantName: string;
   teamOrIndividualName: string;
   email: string;
@@ -70,6 +72,14 @@ export interface AdminPaymentSubmissionRecord {
 
 export interface AdminDashboardStats {
   totalRegistrations: number;
+  participantCount: number;
+  audienceCount: number;
+  participantVerifiedCount: number;
+  audienceVerifiedCount: number;
+  participantPendingCount: number;
+  audiencePendingCount: number;
+  participantVerifiedAmountInr: number;
+  audienceVerifiedAmountInr: number;
   individualCount: number;
   coupleCount: number;
   groupCount: number;
@@ -102,6 +112,8 @@ export interface RegistrationGrowthMetrics {
 }
 
 export interface TierBreakdownItem {
+  key: EntryPassTierId | 'audience';
+  registrationType: RegistrationType;
   entryType: EntryPassTierId;
   label: string;
   totalCount: number;

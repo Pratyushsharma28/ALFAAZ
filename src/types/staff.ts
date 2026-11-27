@@ -1,3 +1,5 @@
+import type { RegistrationType } from './registration';
+
 export type CheckInOutcome = 'ENTRY_APPROVED' | 'ALREADY_CHECKED_IN' | 'ENTRY_DENIED';
 
 export interface StaffProfile {
@@ -12,11 +14,16 @@ export interface CheckInSummaryStats {
   checkedInCount: number;
   remainingCount: number;
   checkInRatePercent: number;
+  participantValidTickets: number;
+  participantCheckedInCount: number;
+  audienceValidTickets: number;
+  audienceCheckedInCount: number;
 }
 
 export interface SafeCheckInTicketInfo {
   ticketId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   participantOrTeamName: string;
   passCategoryLabel: string;
   categoriesDisplay: string;
@@ -38,6 +45,7 @@ export interface StaffCheckInResponse {
 export interface SafeRecentCheckInItem {
   ticketId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   participantOrTeamName: string;
   passCategoryLabel: string;
   participantCount: number;
@@ -68,6 +76,7 @@ export interface AdminCheckInRecordItem {
   ticketId: string;
   registrationId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   participantOrTeamName: string;
   fullName: string;
   passCategoryLabel: string;
@@ -86,6 +95,7 @@ export interface AdminCheckInAuditLogItem {
   ticketId: string;
   registrationId: string;
   registrationCode: string;
+  registrationType: RegistrationType;
   performedByEmail: string;
   performedByRole: 'staff' | 'admin';
   originalCheckedInAt: string | null;

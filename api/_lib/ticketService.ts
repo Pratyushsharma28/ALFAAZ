@@ -7,6 +7,7 @@ export interface VerifiedTicketPayload {
   ticketId: string;
   registrationId: string;
   registrationCode: string;
+  registrationType?: 'PARTICIPANT' | 'AUDIENCE';
   participantOrTeamName: string;
   fullName: string;
   entryTypeLabel: string;
@@ -133,6 +134,9 @@ export async function generateConfirmedTicketPdf(
   const muted = rgb(0.62, 0.61, 0.59);
   const borderLine = rgb(0.22, 0.21, 0.22);
 
+  const isAudience = ticket.registrationType === 'AUDIENCE';
+  const accentColor = isAudience ? rgb(0, 0.898, 1) : crimson;
+
   // Full dark editorial canvas + outer frame
   page.drawRectangle({
     x: 0,
@@ -152,13 +156,13 @@ export async function generateConfirmedTicketPdf(
     borderWidth: 1,
   });
 
-  // Left crimson accent bar
+  // Left accent bar (Cyan for Audience Watch-Only, Crimson for Participant)
   page.drawRectangle({
     x: 14,
     y: 14,
     width: 7,
     height: pageHeight - 28,
-    color: crimson,
+    color: accentColor,
   });
 
   // Top header bar
@@ -178,30 +182,36 @@ export async function generateConfirmedTicketPdf(
     color: offWhite,
   });
 
-  page.drawText('18 DECEMBER 2026 | QUAD AI, BENGALURU | OFFICIAL ENTRY PASS', {
-    x: 34,
-    y: pageHeight - 84,
-    size: 8.5,
-    font: fontMono,
-    color: muted,
-  });
+  page.drawText(
+    isAudience
+      ? '18 DECEMBER 2026 | QUAD AI, BENGALURU | OFFICIAL AUDIENCE PASS (WATCH ONLY)'
+      : '18 DECEMBER 2026 | QUAD AI, BENGALURU | OFFICIAL PARTICIPANT ENTRY PASS',
+    {
+      x: 34,
+      y: pageHeight - 84,
+      size: 8.5,
+      font: fontMono,
+      color: isAudience ? rgb(0, 0.898, 1) : muted,
+    }
+  );
 
-  // Verified status pill on top right
+  // Verified pass badge on top right
+  const cyan = rgb(0, 0.898, 1);
   page.drawRectangle({
-    x: pageWidth - 196,
+    x: pageWidth - 210,
     y: pageHeight - 62,
-    width: 164,
+    width: 178,
     height: 24,
-    color: rgb(0.05, 0.14, 0.07),
-    borderColor: lime,
+    color: isAudience ? rgb(0.03, 0.12, 0.16) : rgb(0.05, 0.14, 0.07),
+    borderColor: isAudience ? cyan : lime,
     borderWidth: 1,
   });
-  page.drawText('VERIFIED & PAID PASS', {
-    x: pageWidth - 181,
+  page.drawText(isAudience ? 'AUDIENCE PASS | WATCH ONLY' : 'PARTICIPANT PASS | VERIFIED', {
+    x: pageWidth - 199,
     y: pageHeight - 54,
-    size: 9,
+    size: 8.5,
     font: fontMono,
-    color: lime,
+    color: isAudience ? cyan : lime,
   });
 
   // Horizontal divider
@@ -213,7 +223,7 @@ export async function generateConfirmedTicketPdf(
   });
 
   // Left details column (rows)
-  const drawField = (label: string, value: string, x: number, y: number, highlightLime = false) => {
+  const drawField = (label: string, value: string, x: number, y: number, highlight = false) => {
     page.drawText(label.toUpperCase(), {
       x,
       y,
@@ -226,21 +236,32 @@ export async function generateConfirmedTicketPdf(
       y: y - 14,
       size: 11.5,
       font: fontBold,
-      color: highlightLime ? lime : offWhite,
+      color: highlight ? (isAudience ? cyan : lime) : offWhite,
     });
   };
 
   drawField('Ticket ID', ticket.ticketId, 34, 232, true);
   drawField('Registration Code', ticket.registrationCode, 235, 232, false);
 
-  drawField('Participant / Team Name', ticket.participantOrTeamName, 34, 186, false);
-  drawField('Registered Lead', ticket.fullName, 235, 186, false);
+  if (isAudience) {
+    drawField('Attendee Name', ticket.fullName, 34, 186, false);
+    drawField('Pass Type', 'AUDIENCE PASS (WATCH ONLY)', 235, 186, true);
 
-  drawField('Pass Tier', ticket.entryTypeLabel, 34, 140, false);
-  drawField('Category', ticket.categoriesDisplay, 235, 140, false);
+    drawField('Admission', '1 Person', 34, 140, false);
+    drawField('Rights Scope', 'Watch Only (No Performance)', 235, 140, false);
 
-  drawField('Participants', `${ticket.participantCount} Member(s)`, 34, 94, false);
-  drawField('Amount Paid', `INR ${ticket.amountPaidInr}`, 235, 94, true);
+    drawField('Event Date', '18 Dec 2026 | 4:00 PM', 34, 94, false);
+    drawField('Amount Paid', `INR ${ticket.amountPaidInr}`, 235, 94, true);
+  } else {
+    drawField('Participant / Team Name', ticket.participantOrTeamName, 34, 186, false);
+    drawField('Registered Lead', ticket.fullName, 235, 186, false);
+
+    drawField('Pass Tier', ticket.entryTypeLabel, 34, 140, false);
+    drawField('Category', ticket.categoriesDisplay, 235, 140, false);
+
+    drawField('Participants', `${ticket.participantCount} Member(s)`, 34, 94, false);
+    drawField('Amount Paid', `INR ${ticket.amountPaidInr}`, 235, 94, true);
+  }
 
   // Vertical dashed divider separating QR stub
   const stubX = 434;
@@ -307,7 +328,9 @@ export async function generateConfirmedTicketPdf(
     : 'Verified';
   page.drawText(
     sanitizePdfText(
-      `Verified Date: ${verifiedFormatted} | Carry a valid College / Photo ID at check-in.`
+      isAudience
+        ? `Verified Date: ${verifiedFormatted} | Watch-only pass (no stage performance rights). Carry valid Photo ID.`
+        : `Verified Date: ${verifiedFormatted} | Carry a valid College / Photo ID at check-in.`
     ),
     {
       x: 34,

@@ -12,8 +12,11 @@ import {
   type TableSchemaMap,
 } from './supabaseAdmin.js';
 
+export type RegistrationType = 'PARTICIPANT' | 'AUDIENCE';
 export type EntryPassTierId = 'individual' | 'couple' | 'group';
 export type ParticipationCategory = 'Dance' | 'Singing' | 'Poetry';
+
+export const AUDIENCE_PASS_FEE_INR = 59;
 
 export const AUTHORITATIVE_PASS_FEES_INR: Record<EntryPassTierId, number> = {
   individual: 99,
@@ -26,8 +29,14 @@ export const MAX_PROOF_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 const ALLOWED_CATEGORIES: readonly ParticipationCategory[] = ['Dance', 'Singing', 'Poetry'];
 
+export function resolveRegistrationType(row: Record<string, unknown>): RegistrationType {
+  const raw = String(row.registration_type ?? '').trim().toUpperCase();
+  return raw === 'AUDIENCE' ? 'AUDIENCE' : 'PARTICIPANT';
+}
+
 export interface NormalizedRegistrationInput {
   idempotencyKey: string;
+  registrationType: RegistrationType;
   entryType: EntryPassTierId;
   amountInr: number;
   fullName: string;
@@ -46,11 +55,14 @@ export interface NormalizedRegistrationInput {
 export interface RegistrationCreationResult {
   registrationId: string;
   referenceId: string;
+  registrationType: RegistrationType;
+  amountInr: number;
 }
 
 export interface PaymentProofSubmissionResult {
   registrationId: string;
   referenceId: string;
+  registrationType: RegistrationType;
   status: 'pending_verification';
   utr: string;
   proofStatus: string;
@@ -61,6 +73,7 @@ export interface PaymentVerificationStatusResult {
   status: 'verified' | 'pending_verification' | 'failed';
   registrationId: string;
   referenceId: string;
+  registrationType: RegistrationType;
   participantOrTeamName: string;
   entryType: EntryPassTierId;
   amountPaid: number;
@@ -255,12 +268,14 @@ async function insertRowAdaptively(
   table: 'registrations' | 'payment_submissions',
   initialPayload: Record<string, unknown>,
   statusColumnCandidates: string[],
-  pendingStatusCandidates: string[]
+  pendingStatusCandidates: string[],
+  options?: { requiredColumns?: string[] }
 ): Promise<Record<string, unknown>> {
   const workingPayload: Record<string, unknown> = { ...initialPayload };
   const statusCol = statusColumnCandidates.find((col) =>
     Object.prototype.hasOwnProperty.call(workingPayload, col)
   );
+  const requiredCols = new Set(options?.requiredColumns ?? []);
   let statusIdx = 0;
 
   for (let attempt = 0; attempt < 15; attempt++) {
@@ -277,6 +292,13 @@ async function insertRowAdaptively(
 
     if (isUndefinedColumnError(err)) {
       const missingCol = extractMissingColumnName(err.message ?? '');
+      if (missingCol && requiredCols.has(missingCol)) {
+        throw new ApiHttpError(
+          503,
+          `Audience registration database migration is pending (missing ${table}.${missingCol}). Run supabase/audience_registration_migration.sql in your Supabase SQL Editor.`,
+          'SCHEMA_NOT_READY'
+        );
+      }
       if (missingCol && Object.prototype.hasOwnProperty.call(workingPayload, missingCol)) {
         delete workingPayload[missingCol];
         continue;
@@ -292,10 +314,16 @@ async function insertRowAdaptively(
       continue;
     }
 
-    if (isConstraintOrEnumError(err) && statusCol && statusIdx + 1 < pendingStatusCandidates.length) {
-      statusIdx += 1;
-      workingPayload[statusCol] = pendingStatusCandidates[statusIdx];
-      continue;
+    if (isConstraintOrEnumError(err)) {
+      if (workingPayload.entry_type === 'audience') {
+        workingPayload.entry_type = 'individual';
+        continue;
+      }
+      if (statusCol && statusIdx + 1 < pendingStatusCandidates.length) {
+        statusIdx += 1;
+        workingPayload[statusCol] = pendingStatusCandidates[statusIdx];
+        continue;
+      }
     }
 
     if (isPermissionDeniedError(err)) {
@@ -325,26 +353,17 @@ async function insertRowAdaptively(
 }
 
 export function validateRegistrationInput(body: Record<string, unknown>): NormalizedRegistrationInput {
-  const rawEntryType = asTrimmedString(body.entryType).toLowerCase();
-  if (rawEntryType !== 'individual' && rawEntryType !== 'couple' && rawEntryType !== 'group') {
-    throw new ApiHttpError(
-      400,
-      'Invalid entryType. Must be individual, couple, or group.',
-      'VALIDATION_ERROR'
-    );
-  }
-  const entryType = rawEntryType as EntryPassTierId;
-  const authoritativeFee = AUTHORITATIVE_PASS_FEES_INR[entryType];
-
-  if (body.expectedFeeInr !== undefined && body.expectedFeeInr !== null && body.expectedFeeInr !== '') {
-    const clientFee = Number(body.expectedFeeInr);
-    if (!Number.isFinite(clientFee) || clientFee !== authoritativeFee) {
+  const rawRegistrationType = asTrimmedString(body.registrationType).toUpperCase();
+  let registrationType: RegistrationType = 'PARTICIPANT';
+  if (rawRegistrationType.length > 0) {
+    if (rawRegistrationType !== 'PARTICIPANT' && rawRegistrationType !== 'AUDIENCE') {
       throw new ApiHttpError(
         400,
-        `Registration fee mismatch for ${entryType} pass. Expected ₹${authoritativeFee}.`,
-        'FEE_MISMATCH'
+        'Invalid registrationType. Must be PARTICIPANT or AUDIENCE.',
+        'VALIDATION_ERROR'
       );
     }
+    registrationType = rawRegistrationType;
   }
 
   const fullName = asTrimmedString(body.fullName);
@@ -369,12 +388,83 @@ export function validateRegistrationInput(body: Record<string, unknown>): Normal
 
   const collegeName = asTrimmedString(body.collegeName);
   if (collegeName.length < 2 || collegeName.length > 180) {
-    throw new ApiHttpError(400, 'College name is required.', 'VALIDATION_ERROR');
+    throw new ApiHttpError(400, 'College / institution name is required.', 'VALIDATION_ERROR');
   }
 
   const city = asTrimmedString(body.city);
   if (city.length < 2 || city.length > 100) {
     throw new ApiHttpError(400, 'City is required.', 'VALIDATION_ERROR');
+  }
+
+  const rawIdempotencyKey = asTrimmedString(body.idempotencyKey);
+  const idempotencyKey =
+    rawIdempotencyKey && /^[a-zA-Z0-9._-]{8,100}$/.test(rawIdempotencyKey)
+      ? rawIdempotencyKey
+      : randomUUID();
+
+  if (registrationType === 'AUDIENCE') {
+    if (
+      body.expectedFeeInr !== undefined &&
+      body.expectedFeeInr !== null &&
+      body.expectedFeeInr !== ''
+    ) {
+      const clientFee = Number(body.expectedFeeInr);
+      if (!Number.isFinite(clientFee) || clientFee !== AUDIENCE_PASS_FEE_INR) {
+        throw new ApiHttpError(
+          400,
+          `Registration fee mismatch for Audience Pass. Expected ₹${AUDIENCE_PASS_FEE_INR}.`,
+          'FEE_MISMATCH'
+        );
+      }
+    }
+
+    if (body.acknowledgedWatchOnly !== true) {
+      throw new ApiHttpError(
+        400,
+        'Please confirm that audience registration is watch-only and does not include participation or stage performance rights.',
+        'VALIDATION_ERROR'
+      );
+    }
+
+    return {
+      idempotencyKey,
+      registrationType: 'AUDIENCE',
+      entryType: 'individual',
+      amountInr: AUDIENCE_PASS_FEE_INR,
+      fullName,
+      email,
+      mobileNumber,
+      collegeName,
+      city,
+      categories: [],
+      teamOrIndividualName: fullName,
+      participantCount: 1,
+      participantNames: fullName,
+      teamLeaderName: fullName,
+      emergencyContactNumber: mobileNumber,
+    };
+  }
+
+  const rawEntryType = asTrimmedString(body.entryType).toLowerCase();
+  if (rawEntryType !== 'individual' && rawEntryType !== 'couple' && rawEntryType !== 'group') {
+    throw new ApiHttpError(
+      400,
+      'Invalid entryType. Must be individual, couple, or group.',
+      'VALIDATION_ERROR'
+    );
+  }
+  const entryType = rawEntryType as EntryPassTierId;
+  const authoritativeFee = AUTHORITATIVE_PASS_FEES_INR[entryType];
+
+  if (body.expectedFeeInr !== undefined && body.expectedFeeInr !== null && body.expectedFeeInr !== '') {
+    const clientFee = Number(body.expectedFeeInr);
+    if (!Number.isFinite(clientFee) || clientFee !== authoritativeFee) {
+      throw new ApiHttpError(
+        400,
+        `Registration fee mismatch for ${entryType} pass. Expected ₹${authoritativeFee}.`,
+        'FEE_MISMATCH'
+      );
+    }
   }
 
   const rawCategories = Array.isArray(body.categories) ? body.categories : [];
@@ -442,14 +532,9 @@ export function validateRegistrationInput(body: Record<string, unknown>): Normal
   }
   const emergencyContactNumber = normalizeIndianMobile(emergencyRaw);
 
-  const rawIdempotencyKey = asTrimmedString(body.idempotencyKey);
-  const idempotencyKey =
-    rawIdempotencyKey && /^[a-zA-Z0-9._-]{8,100}$/.test(rawIdempotencyKey)
-      ? rawIdempotencyKey
-      : randomUUID();
-
   return {
     idempotencyKey,
+    registrationType: 'PARTICIPANT',
     entryType,
     amountInr: authoritativeFee,
     fullName,
@@ -503,6 +588,18 @@ export async function createOrReuseRegistration(
   const supabase = getSupabaseAdminClient();
   const regSchema = await getTableSchemaProperties('registrations');
 
+  if (
+    input.registrationType === 'AUDIENCE' &&
+    regSchema &&
+    !Object.prototype.hasOwnProperty.call(regSchema, 'registration_type')
+  ) {
+    throw new ApiHttpError(
+      503,
+      'Audience registration database migration is pending (missing registrations.registration_type). Run supabase/audience_registration_migration.sql in your Supabase SQL Editor.',
+      'SCHEMA_NOT_READY'
+    );
+  }
+
   // Idempotency lookup if idempotency_key column exists
   if (!regSchema || Object.prototype.hasOwnProperty.call(regSchema, 'idempotency_key')) {
     const existing = await supabase
@@ -518,6 +615,14 @@ export async function createOrReuseRegistration(
 
     if (!existing.error && existing.data) {
       const row = existing.data as Record<string, unknown>;
+      const existingType = resolveRegistrationType(row);
+      if (existingType !== input.registrationType) {
+        throw new ApiHttpError(
+          409,
+          'Registration key conflicts with a different registration type.',
+          'REGISTRATION_TYPE_CONFLICT'
+        );
+      }
       const registrationId = pickString(row, ['id', 'registration_id', 'registration_code']);
       const referenceId = pickString(
         row,
@@ -525,7 +630,12 @@ export async function createOrReuseRegistration(
         registrationId
       );
       if (registrationId) {
-        return { registrationId, referenceId };
+        return {
+          registrationId,
+          referenceId,
+          registrationType: existingType,
+          amountInr: input.amountInr,
+        };
       }
     }
   }
@@ -535,7 +645,19 @@ export async function createOrReuseRegistration(
 
   const insertPayload = buildSchemaAwarePayload(regSchema, [
     { keys: ['registration_code', 'reference_id', 'code'], value: generatedCode },
-    { keys: ['entry_type', 'participation_type', 'pass_type'], value: input.entryType },
+    { keys: ['registration_type'], value: input.registrationType },
+    {
+      keys: ['entry_type', 'participation_type', 'pass_type'],
+      value: (col) => {
+        if (input.registrationType === 'AUDIENCE') {
+          if (col?.enum && col.enum.some((val) => val.toLowerCase() === 'audience')) {
+            return 'audience';
+          }
+          return 'individual';
+        }
+        return input.entryType;
+      },
+    },
     { keys: ['full_name', 'participant_name', 'name'], value: input.fullName },
     { keys: ['email'], value: input.email },
     { keys: ['mobile_number', 'phone', 'mobile'], value: input.mobileNumber },
@@ -546,7 +668,9 @@ export async function createOrReuseRegistration(
       value: (col) =>
         col?.type === 'array' || col?.format?.endsWith('[]')
           ? input.categories
-          : input.categories.join(', '),
+          : input.registrationType === 'AUDIENCE'
+            ? 'Audience (Watch Only)'
+            : input.categories.join(', '),
     },
     { keys: ['team_or_individual_name', 'team_name', 'stage_name'], value: input.teamOrIndividualName },
     { keys: ['participant_count', 'team_size'], value: input.participantCount },
@@ -579,13 +703,28 @@ export async function createOrReuseRegistration(
     { keys: ['idempotency_key'], value: input.idempotencyKey },
   ]);
 
+  if (input.registrationType === 'AUDIENCE' && !Object.prototype.hasOwnProperty.call(insertPayload, 'registration_type')) {
+    insertPayload.registration_type = 'AUDIENCE';
+  }
+
   const inserted = await insertRowAdaptively(
     supabase,
     'registrations',
     insertPayload,
     ['payment_status', 'status', 'verification_status'],
-    pendingStatusCandidates
+    pendingStatusCandidates,
+    {
+      requiredColumns: input.registrationType === 'AUDIENCE' ? ['registration_type'] : [],
+    }
   );
+
+  if (input.registrationType === 'AUDIENCE' && resolveRegistrationType(inserted) !== 'AUDIENCE') {
+    throw new ApiHttpError(
+      503,
+      'Audience registration type could not be persisted. Run supabase/audience_registration_migration.sql in your Supabase SQL Editor.',
+      'SCHEMA_NOT_READY'
+    );
+  }
 
   const registrationId = pickString(inserted, ['id', 'registration_id', 'registration_code']);
   const referenceId = pickString(
@@ -605,6 +744,8 @@ export async function createOrReuseRegistration(
   return {
     registrationId,
     referenceId,
+    registrationType: input.registrationType,
+    amountInr: input.amountInr,
   };
 }
 
@@ -619,11 +760,27 @@ export async function submitManualUpiPaymentProof(params: {
     throw new ApiHttpError(400, 'A valid registrationId is required.', 'VALIDATION_ERROR');
   }
 
+  const rawClientRegistrationType = asTrimmedString(fields.registrationType).toUpperCase();
+  if (
+    rawClientRegistrationType.length > 0 &&
+    rawClientRegistrationType !== 'PARTICIPANT' &&
+    rawClientRegistrationType !== 'AUDIENCE'
+  ) {
+    throw new ApiHttpError(400, 'Invalid registrationType.', 'VALIDATION_ERROR');
+  }
+
   const rawEntryType = asTrimmedString(fields.entryType).toLowerCase();
-  if (rawEntryType !== 'individual' && rawEntryType !== 'couple' && rawEntryType !== 'group') {
+  if (
+    rawEntryType &&
+    rawEntryType !== 'individual' &&
+    rawEntryType !== 'couple' &&
+    rawEntryType !== 'group' &&
+    rawEntryType !== 'audience'
+  ) {
     throw new ApiHttpError(400, 'Invalid entryType.', 'VALIDATION_ERROR');
   }
-  const entryType = rawEntryType as EntryPassTierId;
+  const entryType: EntryPassTierId =
+    rawEntryType === 'couple' || rawEntryType === 'group' ? rawEntryType : 'individual';
 
   const utr = asTrimmedString(fields.utr);
   if (!/^[A-Za-z0-9]{6,36}$/.test(utr)) {
@@ -668,6 +825,27 @@ export async function submitManualUpiPaymentProof(params: {
     );
   }
 
+  const savedRegistrationType = resolveRegistrationType(registrationRow);
+  if (rawClientRegistrationType && rawClientRegistrationType !== savedRegistrationType) {
+    throw new ApiHttpError(
+      400,
+      `Registration type mismatch. Expected ${savedRegistrationType}.`,
+      'REGISTRATION_TYPE_MISMATCH'
+    );
+  }
+
+  if (
+    savedRegistrationType === 'AUDIENCE' &&
+    subSchema &&
+    !Object.prototype.hasOwnProperty.call(subSchema, 'registration_type')
+  ) {
+    throw new ApiHttpError(
+      503,
+      'Audience registration database migration is pending (missing payment_submissions.registration_type). Run supabase/audience_registration_migration.sql in your Supabase SQL Editor.',
+      'SCHEMA_NOT_READY'
+    );
+  }
+
   const regRowPrimaryId = pickString(registrationRow, ['id', 'registration_id'], registrationId);
   const regCode = pickString(
     registrationRow,
@@ -675,16 +853,21 @@ export async function submitManualUpiPaymentProof(params: {
     regRowPrimaryId
   );
 
-  // Authoritative server-side pass fee derived from saved registration or validated tier
+  // Authoritative server-side pass fee derived strictly from saved registration_type + tier
   const savedEntryType = normalizeEntryType(
     pickString(registrationRow, ['entry_type', 'participation_type', 'pass_type'], entryType)
   );
-  const authoritativeFee = AUTHORITATIVE_PASS_FEES_INR[savedEntryType];
+  const authoritativeFee =
+    savedRegistrationType === 'AUDIENCE'
+      ? AUDIENCE_PASS_FEE_INR
+      : AUTHORITATIVE_PASS_FEES_INR[savedEntryType];
 
   if (fields.expectedFeeInr && Number(fields.expectedFeeInr) !== authoritativeFee) {
     throw new ApiHttpError(
       400,
-      `Payment amount mismatch for ${savedEntryType} pass. Expected ₹${authoritativeFee}.`,
+      `Payment amount mismatch for ${
+        savedRegistrationType === 'AUDIENCE' ? 'Audience Pass' : `${savedEntryType} pass`
+      }. Expected ₹${authoritativeFee}.`,
       'FEE_MISMATCH'
     );
   }
@@ -729,6 +912,7 @@ export async function submitManualUpiPaymentProof(params: {
       return {
         registrationId: regRowPrimaryId,
         referenceId: regCode,
+        registrationType: savedRegistrationType,
         status: 'pending_verification',
         utr: subUtr || utr,
         proofStatus: 'Uploaded · Pending Verification',
@@ -815,6 +999,7 @@ export async function submitManualUpiPaymentProof(params: {
   const submissionPayload = buildSchemaAwarePayload(subSchema, [
     { keys: ['registration_id'], value: regRowPrimaryId },
     { keys: ['registration_code', 'reference_id'], value: regCode },
+    { keys: ['registration_type'], value: savedRegistrationType },
     { keys: ['entry_type', 'participation_type', 'pass_type'], value: savedEntryType },
     {
       keys: ['amount', 'amount_inr', 'expected_fee_inr', 'fee_inr', 'amount_paid'],
@@ -870,6 +1055,10 @@ export async function submitManualUpiPaymentProof(params: {
     { keys: ['idempotency_key'], value: idempotencyKey },
   ]);
 
+  if (savedRegistrationType === 'AUDIENCE' && !Object.prototype.hasOwnProperty.call(submissionPayload, 'registration_type')) {
+    submissionPayload.registration_type = 'AUDIENCE';
+  }
+
   const hasPopulatedProofPath = proofPathKeys.some((key) => {
     const val = submissionPayload[key];
     return typeof val === 'string' && val.trim().length > 0;
@@ -890,7 +1079,10 @@ export async function submitManualUpiPaymentProof(params: {
       'payment_submissions',
       submissionPayload,
       ['status', 'verification_status', 'payment_status'],
-      pendingStatusCandidates
+      pendingStatusCandidates,
+      {
+        requiredColumns: savedRegistrationType === 'AUDIENCE' ? ['registration_type'] : [],
+      }
     );
   } catch (insertErr) {
     // Clean up orphaned proof file if database insert failed
@@ -923,6 +1115,7 @@ export async function submitManualUpiPaymentProof(params: {
   return {
     registrationId: regRowPrimaryId,
     referenceId: regCode,
+    registrationType: savedRegistrationType,
     status: 'pending_verification',
     utr,
     proofStatus: `Uploaded (${safeOriginalName}) · Pending Verification`,
@@ -975,6 +1168,8 @@ export async function getRegistrationPaymentStatus(
       ? (subRes.data[0] as Record<string, unknown>)
       : null;
 
+  const registrationType = resolveRegistrationType(registrationRow);
+
   const entryType = normalizeEntryType(
     pickString(
       registrationRow,
@@ -986,7 +1181,7 @@ export async function getRegistrationPaymentStatus(
   const amountPaid =
     pickNumber(latestSub ?? {}, ['amount', 'amount_inr', 'expected_fee_inr', 'fee_inr', 'amount_paid']) ??
     pickNumber(registrationRow, ['amount_inr', 'amount', 'expected_fee_inr', 'fee_inr', 'amount_paid']) ??
-    AUTHORITATIVE_PASS_FEES_INR[entryType];
+    (registrationType === 'AUDIENCE' ? AUDIENCE_PASS_FEE_INR : AUTHORITATIVE_PASS_FEES_INR[entryType]);
 
   const subRawStatus = latestSub
     ? pickString(latestSub, ['verification_status', 'status', 'payment_status'], 'pending')
@@ -1020,17 +1215,21 @@ export async function getRegistrationPaymentStatus(
     pickString(registrationRow, ['admin_remarks', 'remarks', 'notes'])
   );
 
-  const participantOrTeamName = pickString(
-    registrationRow,
-    ['team_or_individual_name', 'team_name', 'full_name', 'participant_name', 'name'],
-    'ALFAAZ Participant'
-  );
+  const participantOrTeamName =
+    registrationType === 'AUDIENCE'
+      ? pickString(registrationRow, ['full_name', 'participant_name', 'name'], 'ALFAAZ Audience')
+      : pickString(
+          registrationRow,
+          ['team_or_individual_name', 'team_name', 'full_name', 'participant_name', 'name'],
+          'ALFAAZ Participant'
+        );
 
   if (effectiveStatus === 'verified') {
     return {
       status: 'verified',
       registrationId: regRowPrimaryId,
       referenceId: regCode,
+      registrationType,
       participantOrTeamName,
       entryType,
       amountPaid,
@@ -1046,6 +1245,7 @@ export async function getRegistrationPaymentStatus(
       status: 'failed',
       registrationId: regRowPrimaryId,
       referenceId: regCode,
+      registrationType,
       participantOrTeamName,
       entryType,
       amountPaid,
@@ -1062,6 +1262,7 @@ export async function getRegistrationPaymentStatus(
     status: 'pending_verification',
     registrationId: regRowPrimaryId,
     referenceId: regCode,
+    registrationType,
     participantOrTeamName,
     entryType,
     amountPaid,

@@ -1,5 +1,5 @@
-- ALFAAZ — UNFILTERED: Event Staff Check-In & Admin Audit Schema
--- Run this m-igration once in your Supabase SQL Editor.
+-- ALFAAZ — UNFILTERED: Event Staff Check-In & Admin Audit Schema
+-- Run this migration once in your Supabase SQL Editor.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS public.ticket_checkins (
   ticket_id text NOT NULL UNIQUE,
   registration_id text NOT NULL UNIQUE,
   registration_code text NOT NULL DEFAULT '',
+  registration_type text NOT NULL DEFAULT 'PARTICIPANT' CHECK (registration_type IN ('PARTICIPANT', 'AUDIENCE')),
   checked_in_at timestamptz NOT NULL DEFAULT now(),
   checked_in_by_user_id uuid NOT NULL REFERENCES auth.users(id),
   checked_in_by_email text NOT NULL DEFAULT '',
@@ -34,8 +35,12 @@ CREATE TABLE IF NOT EXISTS public.ticket_checkins (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE public.ticket_checkins
+  ADD COLUMN IF NOT EXISTS registration_type text NOT NULL DEFAULT 'PARTICIPANT';
+
 CREATE INDEX IF NOT EXISTS idx_ticket_checkins_time ON public.ticket_checkins (checked_in_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ticket_checkins_staff ON public.ticket_checkins (checked_in_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_checkins_registration_type ON public.ticket_checkins (registration_type, checked_in_at DESC);
 
 -- 3. Immutable Audit Log for Check-Ins and Admin Reversals
 CREATE TABLE IF NOT EXISTS public.ticket_checkin_audit_logs (
@@ -44,6 +49,7 @@ CREATE TABLE IF NOT EXISTS public.ticket_checkin_audit_logs (
   ticket_id text NOT NULL,
   registration_id text NOT NULL,
   registration_code text NOT NULL DEFAULT '',
+  registration_type text NOT NULL DEFAULT 'PARTICIPANT' CHECK (registration_type IN ('PARTICIPANT', 'AUDIENCE')),
   performed_by_user_id uuid NOT NULL REFERENCES auth.users(id),
   performed_by_email text NOT NULL DEFAULT '',
   performed_by_role text NOT NULL CHECK (performed_by_role IN ('staff', 'admin')),
@@ -53,8 +59,12 @@ CREATE TABLE IF NOT EXISTS public.ticket_checkin_audit_logs (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE public.ticket_checkin_audit_logs
+  ADD COLUMN IF NOT EXISTS registration_type text NOT NULL DEFAULT 'PARTICIPANT';
+
 CREATE INDEX IF NOT EXISTS idx_checkin_audit_created ON public.ticket_checkin_audit_logs (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_checkin_audit_ticket ON public.ticket_checkin_audit_logs (ticket_id);
+CREATE INDEX IF NOT EXISTS idx_checkin_audit_registration_type ON public.ticket_checkin_audit_logs (registration_type, created_at DESC);
 
 -- 4. Strict Row-Level Security (RLS) & Privilege Hardening
 -- All staff check-in, gate lookup, staff management, and reversal flows run
@@ -107,6 +117,8 @@ CREATE TRIGGER trg_prevent_ticket_checkin_audit_log_mutation
 -- 6. Transactional Server-Only RPC Functions (executed strictly by service_role)
 -- All ticket signature & payment-status verification happens in the trusted
 -- server endpoint BEFORE calling perform_atomic_ticket_checkin.
+DROP FUNCTION IF EXISTS public.perform_atomic_ticket_checkin(text, text, text, uuid, text, text, text);
+
 CREATE OR REPLACE FUNCTION public.perform_atomic_ticket_checkin(
   p_ticket_id text,
   p_registration_id text,
@@ -114,7 +126,8 @@ CREATE OR REPLACE FUNCTION public.perform_atomic_ticket_checkin(
   p_staff_user_id uuid,
   p_staff_email text,
   p_staff_name text,
-  p_scan_method text DEFAULT 'qr'
+  p_scan_method text DEFAULT 'qr',
+  p_registration_type text DEFAULT 'PARTICIPANT'
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -126,6 +139,7 @@ DECLARE
   v_clean_reg_id text := trim(COALESCE(p_registration_id, ''));
   v_clean_reg_code text := trim(COALESCE(p_registration_code, ''));
   v_clean_method text := CASE WHEN lower(trim(COALESCE(p_scan_method, 'qr'))) = 'manual' THEN 'manual' ELSE 'qr' END;
+  v_clean_reg_type text := CASE WHEN upper(trim(COALESCE(p_registration_type, 'PARTICIPANT'))) = 'AUDIENCE' THEN 'AUDIENCE' ELSE 'PARTICIPANT' END;
   v_now timestamptz := now();
   v_inserted public.ticket_checkins%ROWTYPE;
   v_existing public.ticket_checkins%ROWTYPE;
@@ -140,6 +154,7 @@ BEGIN
       ticket_id,
       registration_id,
       registration_code,
+      registration_type,
       checked_in_at,
       checked_in_by_user_id,
       checked_in_by_email,
@@ -151,6 +166,7 @@ BEGIN
       v_clean_ticket_id,
       v_clean_reg_id,
       v_clean_reg_code,
+      v_clean_reg_type,
       v_now,
       p_staff_user_id,
       COALESCE(p_staff_email, ''),
@@ -169,6 +185,7 @@ BEGIN
 
       RETURN jsonb_build_object(
         'outcome', 'ALREADY_CHECKED_IN',
+        'registration_type', COALESCE(NULLIF(v_existing.registration_type, ''), v_clean_reg_type),
         'checked_in_at', v_existing.checked_in_at,
         'checked_in_by_name', COALESCE(NULLIF(v_existing.checked_in_by_name, ''), NULLIF(v_existing.checked_in_by_email, ''), 'Gate Staff'),
         'checked_in_by_email', v_existing.checked_in_by_email
@@ -183,6 +200,7 @@ BEGIN
     ticket_id,
     registration_id,
     registration_code,
+    registration_type,
     performed_by_user_id,
     performed_by_email,
     performed_by_role,
@@ -196,6 +214,7 @@ BEGIN
     v_clean_ticket_id,
     v_clean_reg_id,
     v_clean_reg_code,
+    v_clean_reg_type,
     p_staff_user_id,
     COALESCE(p_staff_email, ''),
     'staff',
@@ -206,6 +225,7 @@ BEGIN
 
   RETURN jsonb_build_object(
     'outcome', 'ENTRY_APPROVED',
+    'registration_type', v_inserted.registration_type,
     'checked_in_at', v_inserted.checked_in_at,
     'checked_in_by_name', COALESCE(NULLIF(v_inserted.checked_in_by_name, ''), p_staff_name),
     'checked_in_by_email', v_inserted.checked_in_by_email
@@ -257,6 +277,7 @@ BEGIN
     ticket_id,
     registration_id,
     registration_code,
+    registration_type,
     performed_by_user_id,
     performed_by_email,
     performed_by_role,
@@ -270,6 +291,7 @@ BEGIN
     v_deleted.ticket_id,
     v_deleted.registration_id,
     v_deleted.registration_code,
+    COALESCE(NULLIF(v_deleted.registration_type, ''), 'PARTICIPANT'),
     p_admin_user_id,
     COALESCE(p_admin_email, ''),
     'admin',
@@ -283,13 +305,14 @@ BEGIN
     'not_found', false,
     'ticket_id', v_deleted.ticket_id,
     'registration_id', v_deleted.registration_id,
-    'registration_code', v_deleted.registration_code
+    'registration_code', v_deleted.registration_code,
+    'registration_type', COALESCE(NULLIF(v_deleted.registration_type, ''), 'PARTICIPANT')
   );
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.perform_atomic_ticket_checkin(text, text, text, uuid, text, text, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.perform_atomic_ticket_checkin(text, text, text, uuid, text, text, text) TO service_role;
+REVOKE ALL ON FUNCTION public.perform_atomic_ticket_checkin(text, text, text, uuid, text, text, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.perform_atomic_ticket_checkin(text, text, text, uuid, text, text, text, text) TO service_role;
 
 REVOKE ALL ON FUNCTION public.reverse_ticket_checkin_atomic(text, uuid, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reverse_ticket_checkin_atomic(text, uuid, text, text) TO service_role;
