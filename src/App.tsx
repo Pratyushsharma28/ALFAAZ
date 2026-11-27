@@ -16,10 +16,21 @@ import { RegistrationModal } from './components/RegistrationModal';
 import { EntryPassTierId, ParticipationCategory } from './types/registration';
 
 const AdminPortal = lazy(() => import('./components/admin/AdminPortal'));
+const ParticipantPortal = lazy(() => import('./components/participant/ParticipantPortal'));
 
 function isAdminPath(pathname: string): boolean {
   const normalized = pathname.replace(/\/+$/, '') || '/';
   return normalized === '/admin' || normalized.startsWith('/admin/');
+}
+
+function isMyTicketsPath(pathname: string): boolean {
+  const normalized = pathname.replace(/\/+$/, '') || '/';
+  return (
+    normalized === '/my-tickets' ||
+    normalized.startsWith('/my-tickets/') ||
+    normalized === '/my-registrations' ||
+    normalized.startsWith('/my-registrations/')
+  );
 }
 
 function getInitialIntroOpen(): boolean {
@@ -51,6 +62,18 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
+  const navigateTo = (nextPath: string) => {
+    if (typeof window !== 'undefined') {
+      if (window.location.pathname !== nextPath || window.location.search) {
+        window.history.pushState({}, '', nextPath);
+      }
+      setPathname(nextPath.split('?')[0] || '/');
+      window.scrollTo({ top: 0, behavior: shouldReduceMotion ? 'auto' : 'smooth' });
+    } else {
+      setPathname(nextPath);
+    }
+  };
+
   if (isAdminPath(pathname)) {
     return (
       <MotionConfig reducedMotion="user">
@@ -64,6 +87,31 @@ export default function App() {
           }
         >
           <AdminPortal />
+        </Suspense>
+      </MotionConfig>
+    );
+  }
+
+  if (isMyTicketsPath(pathname)) {
+    return (
+      <MotionConfig reducedMotion="user">
+        <Suspense
+          fallback={
+            <div className="underground-surface flex min-h-screen items-center justify-center bg-[#050505] text-[#EAE7E0]">
+              <p className="font-mono-num text-xs tracking-widest text-[#EAE7E0]/75 uppercase">
+                Loading Participant Portal...
+              </p>
+            </div>
+          }
+        >
+          <ParticipantPortal
+            onNavigateHome={() => navigateTo('/')}
+            onOpenRegistration={() => {
+              navigateTo('/');
+              setRegPreset({ passTier: 'individual' });
+              setRegistrationOpen(true);
+            }}
+          />
         </Suspense>
       </MotionConfig>
     );
@@ -121,7 +169,10 @@ export default function App() {
           >
             Skip to main content
           </a>
-          <Navbar onOpenRegistration={() => openRegistration()} />
+          <Navbar
+            onOpenRegistration={() => openRegistration()}
+            onOpenMyTickets={() => navigateTo('/my-tickets')}
+          />
 
           <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
             <HeroSection
@@ -137,7 +188,10 @@ export default function App() {
             <FaqSection />
           </main>
 
-          <Footer onOpenPoster={() => setIsIntroOpen(true)} />
+          <Footer
+            onOpenPoster={() => setIsIntroOpen(true)}
+            onOpenMyTickets={() => navigateTo('/my-tickets')}
+          />
         </motion.div>
       </div>
     </MotionConfig>

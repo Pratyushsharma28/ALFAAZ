@@ -6,7 +6,7 @@ import {
   useScroll,
   useSpring,
 } from 'motion/react';
-import { ArrowUpRight, Menu, X } from 'lucide-react';
+import { ArrowUpRight, Menu, Ticket, X } from 'lucide-react';
 import { EDITORIAL_EASE, scrollToSection } from './MotionPrimitives';
 
 const NAV_LINKS = [
@@ -26,9 +26,10 @@ const QUAD_AI_SVG_URL = '/assets/aistudio/Quad_AI_Crimson__1__cf26c6bf.svg';
 
 interface NavbarProps {
   onOpenRegistration: () => void;
+  onOpenMyTickets: () => void;
 }
 
-export function Navbar({ onOpenRegistration }: NavbarProps) {
+export function Navbar({ onOpenRegistration, onOpenMyTickets }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeId, setActiveId] = useState<string>('');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -133,10 +134,10 @@ export function Navbar({ onOpenRegistration }: NavbarProps) {
           </svg>
         </a>
 
-        {/* Zone 2: 5 concise single-line text links with neon crimson active & hover underlines */}
+        {/* Zone 2: Concise single-line text links with neon crimson active & hover underlines */}
         <nav
           aria-label="Primary navigation"
-          className="hidden md:flex items-center gap-8 text-sm font-medium text-[#EAE7E0]/75"
+          className="hidden md:flex items-center gap-5 lg:gap-8 text-sm font-medium text-[#EAE7E0]/75"
         >
           {NAV_LINKS.map((link) => {
             const isActive = activeId === link.id;
@@ -179,6 +180,32 @@ export function Navbar({ onOpenRegistration }: NavbarProps) {
               </a>
             );
           })}
+
+          <a
+            href="/my-tickets"
+            onClick={(e) => {
+              e.preventDefault();
+              setMobileMenuOpen(false);
+              onOpenMyTickets();
+            }}
+            onMouseEnter={() => setHoveredId('my-tickets')}
+            onMouseLeave={() => setHoveredId(null)}
+            className="relative inline-flex items-center gap-1.5 py-1 whitespace-nowrap shrink-0 text-[#C8F36B] transition-all duration-200 hover:text-[#EAE7E0] hover:drop-shadow-[0_0_8px_rgba(200,243,107,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8F36B]"
+          >
+            <Ticket className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>My Tickets</span>
+            <motion.span
+              aria-hidden="true"
+              initial={false}
+              animate={{ scaleX: hoveredId === 'my-tickets' ? 1 : 0 }}
+              transition={
+                shouldReduceMotion
+                  ? { duration: 0.01 }
+                  : { duration: 0.2, ease: EDITORIAL_EASE }
+              }
+              className="absolute right-0 bottom-0 left-0 h-[1.5px] origin-left bg-[#C8F36B] shadow-[0_0_8px_rgba(200,243,107,0.7)]"
+            />
+          </a>
         </nav>
 
         {/* Zone 3: 1 primary neon crimson Register Now action + mobile trigger */}
@@ -260,6 +287,23 @@ export function Navbar({ onOpenRegistration }: NavbarProps) {
                   </li>
                 );
               })}
+              <li>
+                <a
+                  href="/my-tickets"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setMobileMenuOpen(false);
+                    onOpenMyTickets();
+                  }}
+                  className="flex min-h-[44px] items-center justify-between py-3 text-sm font-semibold text-[#C8F36B] transition-colors hover:text-[#EAE7E0]"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Ticket className="h-4 w-4" aria-hidden="true" />
+                    My Tickets &amp; Payment History
+                  </span>
+                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                </a>
+              </li>
               <li className="pt-3 pb-2">
                 <button
                   type="button"

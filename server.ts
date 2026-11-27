@@ -6,6 +6,11 @@ import { createServer as createViteServer } from 'vite';
 import registrationsHandler from './api/registrations.js';
 import paymentProofHandler from './api/registrations/payment-proof.js';
 import paymentStatusHandler from './api/payments/razorpay/status.js';
+import participantOtpHandler from './api/participant/auth/request-otp.js';
+import participantRegistrationsHandler from './api/participant/registrations.js';
+import participantResubmitHandler from './api/participant/resubmit-proof.js';
+import participantTicketHandler from './api/participant/ticket.js';
+import ticketVerifyHandler from './api/tickets/verify.js';
 
 const PORT = Number(process.env.PORT || 3000);
 const isProduction = process.env.NODE_ENV === 'production';
@@ -13,9 +18,13 @@ const isProduction = process.env.NODE_ENV === 'production';
 async function startServer() {
   const app = express();
 
-  // Mount raw multipart endpoint BEFORE any JSON body parser
+  // Mount raw multipart endpoints BEFORE any JSON body parser
   app.all('/api/registrations/payment-proof', (req, res) => {
     void paymentProofHandler(req, res);
+  });
+
+  app.all('/api/participant/resubmit-proof', (req, res) => {
+    void participantResubmitHandler(req, res);
   });
 
   app.all('/api/registrations', (req, res) => {
@@ -24,6 +33,22 @@ async function startServer() {
 
   app.all('/api/payments/razorpay/status', (req, res) => {
     void paymentStatusHandler(req, res);
+  });
+
+  app.all('/api/participant/auth/request-otp', (req, res) => {
+    void participantOtpHandler(req, res);
+  });
+
+  app.all('/api/participant/registrations', (req, res) => {
+    void participantRegistrationsHandler(req, res);
+  });
+
+  app.all('/api/participant/ticket', (req, res) => {
+    void participantTicketHandler(req, res);
+  });
+
+  app.all('/api/tickets/verify', (req, res) => {
+    void ticketVerifyHandler(req, res);
   });
 
   if (!isProduction) {

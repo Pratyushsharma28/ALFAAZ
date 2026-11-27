@@ -5,6 +5,7 @@ import { EDITORIAL_EASE, RevealBlock, scrollToSection, SectionDividerLine } from
 
 interface FooterProps {
   onOpenPoster: () => void;
+  onOpenMyTickets: () => void;
 }
 
 const FOOTER_LINKS = [
@@ -18,7 +19,7 @@ const FOOTER_LINKS = [
   { label: 'FAQ', href: '#faq' },
 ];
 
-export function Footer({ onOpenPoster }: FooterProps) {
+export function Footer({ onOpenPoster, onOpenMyTickets }: FooterProps) {
   const shouldReduceMotion = useReducedMotion();
 
   const handleFooterNav = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -73,7 +74,7 @@ export function Footer({ onOpenPoster }: FooterProps) {
             </p>
             <nav
               aria-label="Footer navigation"
-              className="mt-3.5 grid w-full max-w-[340px] grid-flow-col grid-cols-2 grid-rows-4 gap-x-8 gap-y-1 text-sm font-medium text-[#EAE7E0]/80 sm:w-auto sm:max-w-none lg:mt-4 lg:gap-x-10 lg:gap-y-1.5"
+              className="mt-3.5 grid w-full max-w-[340px] grid-flow-col grid-cols-2 grid-rows-5 gap-x-8 gap-y-1 text-sm font-medium text-[#EAE7E0]/80 sm:w-auto sm:max-w-none lg:mt-4 lg:gap-x-10 lg:gap-y-1.5"
             >
               {FOOTER_LINKS.map((link) => (
                 <a
@@ -89,6 +90,20 @@ export function Footer({ onOpenPoster }: FooterProps) {
                   />
                 </a>
               ))}
+              <a
+                href="/my-tickets"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onOpenMyTickets();
+                }}
+                className="group relative inline-flex min-h-[44px] w-fit items-center py-1 whitespace-nowrap text-[#C8F36B] transition-colors duration-150 hover:text-[#EAE7E0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8F36B] lg:min-h-[34px]"
+              >
+                <span>My Tickets</span>
+                <span
+                  aria-hidden="true"
+                  className="absolute right-0 bottom-1.5 left-0 h-[1.5px] origin-left scale-x-0 bg-[#C8F36B] shadow-[0_0_8px_rgba(200,243,107,0.8)] transition-transform duration-200 group-hover:scale-x-100 lg:bottom-0.5"
+                />
+              </a>
             </nav>
           </div>
 
