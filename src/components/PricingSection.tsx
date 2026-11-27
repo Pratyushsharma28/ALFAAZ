@@ -7,8 +7,6 @@ import {
   OFFICIAL_GOOGLE_FORM_URL,
   RevealBlock,
   SectionDividerLine,
-  staggerContainerVariants,
-  staggerItemVariants,
 } from './MotionPrimitives';
 
 export type PassTierId = 'individual' | 'couple' | 'group';
@@ -143,29 +141,53 @@ export function PricingSection() {
         <SectionDividerLine />
 
         {/* Asymmetric Stepped Entry Pass Ticket Cards */}
-        <motion.div
-          variants={shouldReduceMotion ? undefined : staggerContainerVariants}
-          initial={shouldReduceMotion ? false : 'hidden'}
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.15 }}
-          className="mt-12 grid grid-cols-1 items-stretch gap-6 md:grid-cols-12"
-        >
+        <div className="mt-12 grid grid-cols-1 items-stretch gap-6 md:grid-cols-12">
           {PASS_TIERS.map((tier, idx) => {
             const isSelected = tier.id === selectedTier;
+            const entryTilt = idx === 0 ? -2.2 : idx === 1 ? 1.2 : 2.2;
+            const entryOffsetX = idx === 0 ? -8 : idx === 2 ? 8 : 0;
+
             return (
               <motion.div
                 key={tier.id}
-                variants={shouldReduceMotion ? undefined : staggerItemVariants}
+                initial={
+                  shouldReduceMotion
+                    ? false
+                    : {
+                        opacity: 0,
+                        y: 26,
+                        x: entryOffsetX,
+                        rotate: entryTilt,
+                      }
+                }
+                whileInView={
+                  shouldReduceMotion
+                    ? undefined
+                    : {
+                        opacity: 1,
+                        y: 0,
+                        x: 0,
+                        rotate: 0,
+                      }
+                }
+                viewport={{ once: true, amount: 0.18 }}
+                transition={
+                  shouldReduceMotion
+                    ? { duration: 0.01 }
+                    : {
+                        duration: 0.72,
+                        delay: idx * 0.12,
+                        ease: EDITORIAL_EASE,
+                      }
+                }
                 className="md:col-span-4"
               >
                 <InteractiveNeonCard
                   accentColor="#FF1744"
-                  hoverLift={-10}
-                  hoverScale={1.02}
-                  maxTilt={4.5}
-                  floatAmplitude={3.5}
-                  floatDuration={5.2 + idx * 0.7}
-                  floatDelay={idx * 0.45}
+                  hoverLift={-7}
+                  hoverScale={1}
+                  maxTilt={3.5}
+                  floatAmplitude={0}
                   onClick={() => setSelectedTier(tier.id)}
                   className={`flex h-full cursor-pointer flex-col justify-between border p-7 transition-colors duration-200 ${
                     isSelected
@@ -173,6 +195,29 @@ export function PricingSection() {
                       : 'border-[#EAE7E0]/20 bg-[#050505] hover:border-[#FF1744]/65'
                   }`}
                 >
+                  {/* Refined Diagonal Ticket Surface Light Sweep on Viewport Reveal (works on mobile & desktop) */}
+                  {!shouldReduceMotion && (
+                    <motion.div
+                      aria-hidden="true"
+                      initial={{ x: '-135%', opacity: 0 }}
+                      whileInView={{
+                        x: '145%',
+                        opacity: [0, 0.52, 0],
+                      }}
+                      viewport={{ once: true, amount: 0.25 }}
+                      transition={{
+                        duration: 0.92,
+                        delay: 0.24 + idx * 0.13,
+                        ease: EDITORIAL_EASE,
+                      }}
+                      style={{
+                        background:
+                          'linear-gradient(108deg, transparent 20%, rgba(255,23,68,0.16) 44%, rgba(234,231,224,0.16) 50%, rgba(255,23,68,0.12) 56%, transparent 80%)',
+                      }}
+                      className="pointer-events-none absolute inset-y-0 left-0 z-20 w-[72%]"
+                    />
+                  )}
+
                   {isSelected && (
                     <motion.div
                       layoutId={shouldReduceMotion ? undefined : 'pass-selected-badge'}
@@ -204,7 +249,7 @@ export function PricingSection() {
                         <h3 className="font-display text-4xl font-black tracking-tight text-[#EAE7E0] uppercase">
                           {tier.name}
                         </h3>
-                        <span className="font-display text-6xl font-black text-[#C8F36B] tabular-nums transition-transform duration-300 group-hover/neoncard:scale-105">
+                        <span className="font-display text-6xl font-black text-[#C8F36B] tabular-nums">
                           {tier.price}
                         </span>
                       </div>
@@ -249,7 +294,7 @@ export function PricingSection() {
               </motion.div>
             );
           })}
-        </motion.div>
+        </div>
 
         {/* Dark Crimson-Accent Google Form Handoff Panel */}
         <RevealBlock delay={0.1} className="mt-8">
