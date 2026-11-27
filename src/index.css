@@ -141,6 +141,28 @@
   animation: ticket-notch-glow 3.6s ease-in-out infinite;
 }
 
+/* Die-cut semicircular side notches for Entry Pass ticket cards */
+.ticket-pass-card {
+  -webkit-mask-image:
+    radial-gradient(circle at 0px var(--ticket-notch-y, calc(100% - 109px)), transparent 9.75px, #000 10.5px),
+    radial-gradient(circle at 100% var(--ticket-notch-y, calc(100% - 109px)), transparent 9.75px, #000 10.5px);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(circle at 0px var(--ticket-notch-y, calc(100% - 109px)), transparent 9.75px, #000 10.5px),
+    radial-gradient(circle at 100% var(--ticket-notch-y, calc(100% - 109px)), transparent 9.75px, #000 10.5px);
+  mask-composite: intersect;
+}
+
+.ticket-perf-line {
+  background-image: repeating-linear-gradient(
+    90deg,
+    currentColor 0,
+    currentColor 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
   .neon-cta-breathe,
   .neon-badge-pulse,

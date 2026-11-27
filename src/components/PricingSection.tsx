@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { CSSProperties, useLayoutEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowUpRight, Check, Copy } from 'lucide-react';
 import {
@@ -49,6 +49,245 @@ const PASS_TIERS: PassTier[] = [
       'Designed for dance crews, vocal ensembles, and friend squads hitting the stage together at Quad AI, Bengaluru.',
   },
 ];
+
+interface TicketPassCardProps {
+  tier: PassTier;
+  idx: number;
+  isSelected: boolean;
+  shouldReduceMotion: boolean | null;
+  onSelect: (id: PassTierId) => void;
+}
+
+function TicketPassCard({
+  tier,
+  idx,
+  isSelected,
+  shouldReduceMotion,
+  onSelect,
+}: TicketPassCardProps) {
+  const dividerRef = useRef<HTMLDivElement | null>(null);
+  const [notchY, setNotchY] = useState<number | null>(null);
+
+  const entryTilt = idx === 0 ? -2.2 : idx === 1 ? 1.2 : 2.2;
+  const entryOffsetX = idx === 0 ? -8 : idx === 2 ? 8 : 0;
+
+  useLayoutEffect(() => {
+    const divider = dividerRef.current;
+    if (!divider) return;
+
+    const updateNotchY = () => {
+      const nextY = Math.round((divider.offsetTop + divider.offsetHeight / 2 + 1) * 2) / 2;
+      setNotchY((prev) => (prev === nextY ? prev : nextY));
+    };
+
+    updateNotchY();
+
+    const observer =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateNotchY) : null;
+    if (observer) {
+      if (divider.parentElement) {
+        observer.observe(divider.parentElement);
+      }
+      observer.observe(divider);
+    }
+
+    let cancelled = false;
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        if (!cancelled) updateNotchY();
+      });
+    }
+
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+    };
+  }, []);
+
+  const ticketStyle: CSSProperties = {
+    ...(notchY !== null ? ({ '--ticket-notch-y': `${notchY}px` } as CSSProperties) : {}),
+    ...(isSelected
+      ? { filter: 'drop-shadow(0 0 18px rgba(255, 23, 68, 0.24))' }
+      : {}),
+  };
+
+  return (
+    <motion.div
+      initial={
+        shouldReduceMotion
+          ? false
+          : {
+              opacity: 0,
+              y: 26,
+              x: entryOffsetX,
+              rotate: entryTilt,
+            }
+      }
+      whileInView={
+        shouldReduceMotion
+          ? undefined
+          : {
+              opacity: 1,
+              y: 0,
+              x: 0,
+              rotate: 0,
+            }
+      }
+      viewport={{ once: true, amount: 0.18 }}
+      transition={
+        shouldReduceMotion
+          ? { duration: 0.01 }
+          : {
+              duration: 0.72,
+              delay: idx * 0.12,
+              ease: EDITORIAL_EASE,
+            }
+      }
+      style={ticketStyle}
+      className="md:col-span-4"
+    >
+      <InteractiveNeonCard
+        accentColor="#FF1744"
+        hoverLift={-7}
+        hoverScale={1}
+        maxTilt={3.5}
+        floatAmplitude={0}
+        onClick={() => onSelect(tier.id)}
+        className={`ticket-pass-card flex h-full cursor-pointer flex-col justify-between border p-7 transition-colors duration-200 ${
+          isSelected
+            ? 'border-[#FF1744] bg-[#0B0507] shadow-[0_0_28px_rgba(255,23,68,0.24)]'
+            : 'border-[#EAE7E0]/20 bg-[#050505] hover:border-[#FF1744]/65'
+        }`}
+      >
+        {/* Subtle inner ticket perforated hairline frame */}
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-[6px] z-0 border border-dashed transition-colors duration-200 ${
+            isSelected
+              ? 'border-[#FF1744]/30'
+              : 'border-[#EAE7E0]/[0.09] group-hover/neoncard:border-[#FF1744]/25'
+          }`}
+        />
+
+        {/* Refined Diagonal Ticket Surface Light Sweep on Viewport Reveal (works on mobile & desktop) */}
+        {!shouldReduceMotion && (
+          <motion.div
+            aria-hidden="true"
+            initial={{ x: '-135%', opacity: 0 }}
+            whileInView={{
+              x: '145%',
+              opacity: [0, 0.52, 0],
+            }}
+            viewport={{ once: true, amount: 0.25 }}
+            transition={{
+              duration: 0.92,
+              delay: 0.24 + idx * 0.13,
+              ease: EDITORIAL_EASE,
+            }}
+            style={{
+              background:
+                'linear-gradient(108deg, transparent 20%, rgba(255,23,68,0.16) 44%, rgba(234,231,224,0.16) 50%, rgba(255,23,68,0.12) 56%, transparent 80%)',
+            }}
+            className="pointer-events-none absolute inset-y-0 left-0 z-20 w-[72%]"
+          />
+        )}
+
+        {isSelected && (
+          <motion.div
+            layoutId={shouldReduceMotion ? undefined : 'pass-selected-badge'}
+            transition={{ duration: 0.24, ease: EDITORIAL_EASE }}
+            aria-hidden="true"
+            className="neon-badge-pulse absolute top-0 right-0 z-10 bg-[#FF1744] px-3 py-1 font-mono-num text-[10px] font-bold tracking-widest text-[#EAE7E0] uppercase shadow-[0_0_14px_rgba(255,23,68,0.75)]"
+          >
+            Selected
+          </motion.div>
+        )}
+
+        <div className="relative z-10">
+          <button
+            type="button"
+            aria-pressed={isSelected}
+            aria-label={`Select ${tier.name} pass (${tier.price})`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(tier.id);
+            }}
+            className="w-full cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
+          >
+            <div className="flex items-center justify-between text-xs tracking-widest uppercase">
+              <span className="font-mono-num text-[#FF1744]">{tier.index}</span>
+              <span className="text-[#EAE7E0]/70">{tier.scope}</span>
+            </div>
+
+            <div className="mt-5 flex items-baseline justify-between gap-4 border-b border-[#EAE7E0]/15 pb-5">
+              <h3 className="font-display text-4xl font-black tracking-tight text-[#EAE7E0] uppercase">
+                {tier.name}
+              </h3>
+              <span className="font-display text-6xl font-black text-[#C8F36B] tabular-nums">
+                {tier.price}
+              </span>
+            </div>
+          </button>
+
+          <p className="mt-5 text-sm leading-relaxed text-[#EAE7E0]/80">{tier.description}</p>
+        </div>
+
+        {/* Die-Cut Semicircular Ticket Cutouts & Perforated Tear Divider */}
+        <div
+          ref={dividerRef}
+          className="relative z-10 my-5 flex h-4 items-center"
+          aria-hidden="true"
+        >
+          <span
+            className={`pointer-events-none absolute top-1/2 -left-[40px] h-[22px] w-[22px] -translate-y-1/2 rounded-full border transition-colors duration-200 ${
+              isSelected
+                ? 'border-[#FF1744]'
+                : 'border-[#EAE7E0]/20 group-hover/neoncard:border-[#FF1744]/65'
+            }`}
+          />
+          <div
+            className={`ticket-notch-glow ticket-perf-line -mx-[18px] h-[1.5px] flex-1 transition-colors duration-200 ${
+              isSelected
+                ? 'text-[#FF1744]/65'
+                : 'text-[#EAE7E0]/28 group-hover/neoncard:text-[#FF1744]/55'
+            }`}
+          />
+          <span
+            className={`pointer-events-none absolute top-1/2 -right-[40px] h-[22px] w-[22px] -translate-y-1/2 rounded-full border transition-colors duration-200 ${
+              isSelected
+                ? 'border-[#FF1744]'
+                : 'border-[#EAE7E0]/20 group-hover/neoncard:border-[#FF1744]/65'
+            }`}
+          />
+        </div>
+
+        <motion.a
+          href={OFFICIAL_GOOGLE_FORM_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(tier.id);
+          }}
+          whileHover={shouldReduceMotion ? undefined : { scale: 1.03, y: -1 }}
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+          transition={{ duration: 0.16, ease: EDITORIAL_EASE }}
+          className={`group relative z-10 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 px-5 py-3 font-display text-lg font-extrabold tracking-wider uppercase transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EAE7E0] ${
+            isSelected
+              ? 'neon-cta-breathe border border-[#FF1744] bg-[#FF1744] text-[#EAE7E0] hover:bg-[#ff2b54] hover:shadow-[0_0_32px_rgba(255,23,68,0.78)]'
+              : 'border border-[#EAE7E0]/25 text-[#EAE7E0] hover:border-[#FF1744] hover:text-[#FF1744] hover:shadow-[0_0_18px_rgba(255,23,68,0.28)]'
+          }`}
+        >
+          <span>Register Now · {tier.price}</span>
+          <ArrowUpRight
+            className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:rotate-12"
+            aria-hidden="true"
+          />
+        </motion.a>
+      </InteractiveNeonCard>
+    </motion.div>
+  );
+}
 
 export function PricingSection() {
   const [selectedTier, setSelectedTier] = useState<PassTierId>('individual');
@@ -142,158 +381,16 @@ export function PricingSection() {
 
         {/* Asymmetric Stepped Entry Pass Ticket Cards */}
         <div className="mt-12 grid grid-cols-1 items-stretch gap-6 md:grid-cols-12">
-          {PASS_TIERS.map((tier, idx) => {
-            const isSelected = tier.id === selectedTier;
-            const entryTilt = idx === 0 ? -2.2 : idx === 1 ? 1.2 : 2.2;
-            const entryOffsetX = idx === 0 ? -8 : idx === 2 ? 8 : 0;
-
-            return (
-              <motion.div
-                key={tier.id}
-                initial={
-                  shouldReduceMotion
-                    ? false
-                    : {
-                        opacity: 0,
-                        y: 26,
-                        x: entryOffsetX,
-                        rotate: entryTilt,
-                      }
-                }
-                whileInView={
-                  shouldReduceMotion
-                    ? undefined
-                    : {
-                        opacity: 1,
-                        y: 0,
-                        x: 0,
-                        rotate: 0,
-                      }
-                }
-                viewport={{ once: true, amount: 0.18 }}
-                transition={
-                  shouldReduceMotion
-                    ? { duration: 0.01 }
-                    : {
-                        duration: 0.72,
-                        delay: idx * 0.12,
-                        ease: EDITORIAL_EASE,
-                      }
-                }
-                className="md:col-span-4"
-              >
-                <InteractiveNeonCard
-                  accentColor="#FF1744"
-                  hoverLift={-7}
-                  hoverScale={1}
-                  maxTilt={3.5}
-                  floatAmplitude={0}
-                  onClick={() => setSelectedTier(tier.id)}
-                  className={`flex h-full cursor-pointer flex-col justify-between border p-7 transition-colors duration-200 ${
-                    isSelected
-                      ? 'border-[#FF1744] bg-[#0B0507] shadow-[0_0_28px_rgba(255,23,68,0.24)]'
-                      : 'border-[#EAE7E0]/20 bg-[#050505] hover:border-[#FF1744]/65'
-                  }`}
-                >
-                  {/* Refined Diagonal Ticket Surface Light Sweep on Viewport Reveal (works on mobile & desktop) */}
-                  {!shouldReduceMotion && (
-                    <motion.div
-                      aria-hidden="true"
-                      initial={{ x: '-135%', opacity: 0 }}
-                      whileInView={{
-                        x: '145%',
-                        opacity: [0, 0.52, 0],
-                      }}
-                      viewport={{ once: true, amount: 0.25 }}
-                      transition={{
-                        duration: 0.92,
-                        delay: 0.24 + idx * 0.13,
-                        ease: EDITORIAL_EASE,
-                      }}
-                      style={{
-                        background:
-                          'linear-gradient(108deg, transparent 20%, rgba(255,23,68,0.16) 44%, rgba(234,231,224,0.16) 50%, rgba(255,23,68,0.12) 56%, transparent 80%)',
-                      }}
-                      className="pointer-events-none absolute inset-y-0 left-0 z-20 w-[72%]"
-                    />
-                  )}
-
-                  {isSelected && (
-                    <motion.div
-                      layoutId={shouldReduceMotion ? undefined : 'pass-selected-badge'}
-                      transition={{ duration: 0.24, ease: EDITORIAL_EASE }}
-                      aria-hidden="true"
-                      className="neon-badge-pulse absolute top-0 right-0 z-10 bg-[#FF1744] px-3 py-1 font-mono-num text-[10px] font-bold tracking-widest text-[#EAE7E0] uppercase shadow-[0_0_14px_rgba(255,23,68,0.75)]"
-                    >
-                      Selected
-                    </motion.div>
-                  )}
-
-                  <div className="relative z-10">
-                    <button
-                      type="button"
-                      aria-pressed={isSelected}
-                      aria-label={`Select ${tier.name} pass (${tier.price})`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedTier(tier.id);
-                      }}
-                      className="w-full cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
-                    >
-                      <div className="flex items-center justify-between text-xs tracking-widest uppercase">
-                        <span className="font-mono-num text-[#FF1744]">{tier.index}</span>
-                        <span className="text-[#EAE7E0]/70">{tier.scope}</span>
-                      </div>
-
-                      <div className="mt-5 flex items-baseline justify-between gap-4 border-b border-[#EAE7E0]/15 pb-5">
-                        <h3 className="font-display text-4xl font-black tracking-tight text-[#EAE7E0] uppercase">
-                          {tier.name}
-                        </h3>
-                        <span className="font-display text-6xl font-black text-[#C8F36B] tabular-nums">
-                          {tier.price}
-                        </span>
-                      </div>
-                    </button>
-
-                    <p className="mt-5 text-sm leading-relaxed text-[#EAE7E0]/80">
-                      {tier.description}
-                    </p>
-                  </div>
-
-                  {/* Subtle Ticket Perforation Notch Divider */}
-                  <div className="relative z-10 my-5 flex items-center" aria-hidden="true">
-                    <span className="-ml-9 h-4 w-4 rounded-full border border-[#EAE7E0]/15 bg-[#050505]" />
-                    <div className="ticket-notch-glow h-px flex-1 border-t border-dashed border-[#FF1744]/40" />
-                    <span className="-mr-9 h-4 w-4 rounded-full border border-[#EAE7E0]/15 bg-[#050505]" />
-                  </div>
-
-                  <motion.a
-                    href={OFFICIAL_GOOGLE_FORM_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedTier(tier.id);
-                    }}
-                    whileHover={shouldReduceMotion ? undefined : { scale: 1.03, y: -1 }}
-                    whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
-                    transition={{ duration: 0.16, ease: EDITORIAL_EASE }}
-                    className={`group relative z-10 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 px-5 py-3 font-display text-lg font-extrabold tracking-wider uppercase transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EAE7E0] ${
-                      isSelected
-                        ? 'neon-cta-breathe border border-[#FF1744] bg-[#FF1744] text-[#EAE7E0] hover:bg-[#ff2b54] hover:shadow-[0_0_32px_rgba(255,23,68,0.78)]'
-                        : 'border border-[#EAE7E0]/25 text-[#EAE7E0] hover:border-[#FF1744] hover:text-[#FF1744] hover:shadow-[0_0_18px_rgba(255,23,68,0.28)]'
-                    }`}
-                  >
-                    <span>Register Now · {tier.price}</span>
-                    <ArrowUpRight
-                      className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:rotate-12"
-                      aria-hidden="true"
-                    />
-                  </motion.a>
-                </InteractiveNeonCard>
-              </motion.div>
-            );
-          })}
+          {PASS_TIERS.map((tier, idx) => (
+            <TicketPassCard
+              key={tier.id}
+              tier={tier}
+              idx={idx}
+              isSelected={tier.id === selectedTier}
+              shouldReduceMotion={shouldReduceMotion}
+              onSelect={setSelectedTier}
+            />
+          ))}
         </div>
 
         {/* Dark Crimson-Accent Google Form Handoff Panel */}
