@@ -107,7 +107,7 @@ export async function requireAuthorizedStaff(
     );
   }
 
-  const isActive = staffRow.is_active !== false;
+  const isActive = staffRow.is_active === true;
   const revokedAt = typeof staffRow.revoked_at === 'string' && staffRow.revoked_at.trim().length > 0;
 
   if (!isActive || revokedAt) {
@@ -193,7 +193,26 @@ export async function requireAuthorizedAdmin(
     );
   }
 
-  if (row.is_active === false || row.active === false) {
+  const matchedUserId = pickString(row, ['user_id', 'id']);
+  if (matchedUserId !== authUser.id) {
+    throw new ApiHttpError(
+      403,
+      'Access denied: admin record mismatch.',
+      'ACCESS_DENIED'
+    );
+  }
+
+  const adminRevokedAt =
+    typeof row.revoked_at === 'string' && row.revoked_at.trim().length > 0;
+  const adminRole = pickString(row, ['role'], 'admin');
+
+  if (
+    row.is_active === false ||
+    row.active === false ||
+    adminRevokedAt ||
+    adminRole.toLowerCase() === 'revoked' ||
+    adminRole.toLowerCase() === 'disabled'
+  ) {
     throw new ApiHttpError(
       403,
       'Access denied: admin account is inactive.',
@@ -205,6 +224,6 @@ export async function requireAuthorizedAdmin(
     userId: authUser.id,
     email: pickString(row, ['email'], email),
     fullName: pickString(row, ['full_name', 'name'], email.split('@')[0] || 'Organizer Admin'),
-    role: pickString(row, ['role'], 'admin'),
+    role: adminRole,
   };
 }

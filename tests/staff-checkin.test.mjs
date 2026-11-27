@@ -178,6 +178,7 @@ function createStatefulMockSupabase() {
     ],
     ticket_checkins: [],
     ticket_checkin_audit_logs: [],
+    failNextAuditInsert: false,
   };
 
   function applyFilters(rows, searchParams) {
@@ -268,6 +269,111 @@ function createStatefulMockSupabase() {
             },
           },
         },
+      });
+    }
+
+    if (parsed.pathname === '/rest/v1/rpc/perform_atomic_ticket_checkin' && req.method === 'POST') {
+      const ticketId = String(body.p_ticket_id || '').trim().toUpperCase();
+      const registrationId = String(body.p_registration_id || '').trim();
+      const registrationCode = String(body.p_registration_code || '').trim();
+      const scanMethod = body.p_scan_method === 'manual' ? 'manual' : 'qr';
+
+      const existing = db.ticket_checkins.find(
+        (r) => r.ticket_id === ticketId || r.registration_id === registrationId
+      );
+      if (existing) {
+        return send(200, {
+          outcome: 'ALREADY_CHECKED_IN',
+          checked_in_at: existing.checked_in_at,
+          checked_in_by_name: existing.checked_in_by_name || existing.checked_in_by_email || 'Gate Staff',
+          checked_in_by_email: existing.checked_in_by_email,
+        });
+      }
+
+      if (db.failNextAuditInsert) {
+        db.failNextAuditInsert = false;
+        // Transactional rollback: neither ticket_checkins nor ticket_checkin_audit_logs is modified
+        return send(500, { code: 'P0001', message: 'Simulated audit insert failure' });
+      }
+
+      const nowIso = new Date().toISOString();
+      const checkinRow = {
+        id: `chk-${db.ticket_checkins.length + 1}`,
+        ticket_id: ticketId,
+        registration_id: registrationId,
+        registration_code: registrationCode,
+        checked_in_at: nowIso,
+        checked_in_by_user_id: body.p_staff_user_id,
+        checked_in_by_email: body.p_staff_email || '',
+        checked_in_by_name: body.p_staff_name || '',
+        scan_method: scanMethod,
+        created_at: nowIso,
+      };
+      const auditRow = {
+        id: `aud-${db.ticket_checkin_audit_logs.length + 1}`,
+        action: 'CHECKED_IN',
+        ticket_id: ticketId,
+        registration_id: registrationId,
+        registration_code: registrationCode,
+        performed_by_user_id: body.p_staff_user_id,
+        performed_by_email: body.p_staff_email || '',
+        performed_by_role: 'staff',
+        original_checked_in_at: nowIso,
+        original_staff_user_id: body.p_staff_user_id,
+        reason: scanMethod === 'manual' ? 'Manual gate check-in' : 'QR camera check-in',
+        created_at: nowIso,
+      };
+      db.ticket_checkins.push(checkinRow);
+      db.ticket_checkin_audit_logs.push(auditRow);
+
+      return send(200, {
+        outcome: 'ENTRY_APPROVED',
+        checked_in_at: nowIso,
+        checked_in_by_name: checkinRow.checked_in_by_name,
+        checked_in_by_email: checkinRow.checked_in_by_email,
+      });
+    }
+
+    if (parsed.pathname === '/rest/v1/rpc/reverse_ticket_checkin_atomic' && req.method === 'POST') {
+      const ticketId = String(body.p_ticket_id || '').trim().toUpperCase();
+      const reason = String(body.p_reason || '').trim().slice(0, 300);
+      const idx = db.ticket_checkins.findIndex((r) => r.ticket_id === ticketId);
+      if (idx < 0) {
+        return send(200, {
+          reversed: false,
+          not_found: true,
+          ticket_id: ticketId,
+        });
+      }
+
+      if (db.failNextAuditInsert) {
+        db.failNextAuditInsert = false;
+        // Transactional rollback: ticket_checkins row stays intact
+        return send(500, { code: 'P0001', message: 'Simulated reversal audit insert failure' });
+      }
+
+      const [deleted] = db.ticket_checkins.splice(idx, 1);
+      db.ticket_checkin_audit_logs.push({
+        id: `aud-${db.ticket_checkin_audit_logs.length + 1}`,
+        action: 'REVERSED',
+        ticket_id: deleted.ticket_id,
+        registration_id: deleted.registration_id,
+        registration_code: deleted.registration_code,
+        performed_by_user_id: body.p_admin_user_id,
+        performed_by_email: body.p_admin_email || '',
+        performed_by_role: 'admin',
+        original_checked_in_at: deleted.checked_in_at,
+        original_staff_user_id: deleted.checked_in_by_user_id,
+        reason,
+        created_at: new Date().toISOString(),
+      });
+
+      return send(200, {
+        reversed: true,
+        not_found: false,
+        ticket_id: deleted.ticket_id,
+        registration_id: deleted.registration_id,
+        registration_code: deleted.registration_code,
       });
     }
 
@@ -704,4 +810,48 @@ test('5. Admin report reflects attendance counts, reversal logs immutable audit 
   });
   assert.equal(recheckinRes.status, 200);
   assert.equal(recheckinRes.json.outcome, 'ENTRY_APPROVED');
+});
+
+test('6. Audit log failures roll back both check-in and reversal transactionally', async () => {
+  const builtOne = ticketService.buildVerifiedTicketUrls({
+    registrationId: 'reg-verified-1',
+    requestOrigin: 'https://alfaaz-unfiltered.vercel.app',
+  });
+
+  // First ensure ticket 1 is currently checked in (from test 5) and simulate reversal audit failure
+  const checkinsBeforeReversalFail = db.ticket_checkins.length;
+  db.failNextAuditInsert = true;
+  const failedReverseRes = await invokeHandler(handlers.adminCheckins, {
+    method: 'POST',
+    headers: { authorization: 'Bearer token-admin' },
+    body: {
+      action: 'reverse',
+      ticketId: builtOne.ticketId,
+      reason: 'Testing atomic rollback',
+    },
+  });
+  assert.equal(failedReverseRes.status, 500);
+  assert.equal(db.ticket_checkins.length, checkinsBeforeReversalFail);
+
+  // Legitimately reverse ticket 1, then simulate audit failure during check-in
+  const cleanReverse = await invokeHandler(handlers.adminCheckins, {
+    method: 'POST',
+    headers: { authorization: 'Bearer token-admin' },
+    body: {
+      action: 'reverse',
+      ticketId: builtOne.ticketId,
+      reason: 'Reset before check-in rollback test',
+    },
+  });
+  assert.equal(cleanReverse.status, 200);
+  const checkinsAfterReset = db.ticket_checkins.length;
+
+  db.failNextAuditInsert = true;
+  const failedCheckinRes = await invokeHandler(handlers.staffCheckin, {
+    method: 'POST',
+    headers: { authorization: 'Bearer token-staff-a' },
+    body: { qrPayload: builtOne.qrVerificationUrl, scanMethod: 'qr' },
+  });
+  assert.equal(failedCheckinRes.status, 500);
+  assert.equal(db.ticket_checkins.length, checkinsAfterReset);
 });

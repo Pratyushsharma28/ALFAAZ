@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ApiHttpError } from './httpUtils.js';
 import { verifyPublicTicketQr } from './participantService.js';
@@ -188,11 +187,12 @@ function isMissingTableError(err: { code?: string; message?: string } | null): b
   );
 }
 
-function isUniqueViolationError(err: { code?: string; message?: string } | null): boolean {
+function isMissingFunctionError(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
   return (
-    err.code === '23505' ||
-    /duplicate key|unique constraint|already exists/i.test(err.message ?? '')
+    err.code === '42883' ||
+    err.code === 'PGRST202' ||
+    /function .* does not exist|Could not find the function/i.test(err.message ?? '')
   );
 }
 
@@ -201,6 +201,16 @@ function assertStaffTablesReady(err: { code?: string; message?: string } | null,
     throw new ApiHttpError(
       503,
       `Database table "${tableName}" is not provisioned yet. Run supabase/staff_checkin_migration.sql in your Supabase SQL Editor.`,
+      'SCHEMA_NOT_READY'
+    );
+  }
+}
+
+function assertStaffRpcReady(err: { code?: string; message?: string } | null, fnName: string): void {
+  if (err && (isMissingTableError(err) || isMissingFunctionError(err))) {
+    throw new ApiHttpError(
+      503,
+      `Database function "${fnName}" is not provisioned yet. Run the updated supabase/staff_checkin_migration.sql in your Supabase SQL Editor.`,
       'SCHEMA_NOT_READY'
     );
   }
@@ -502,107 +512,55 @@ export async function performAtomicStaffCheckIn(params: {
     verifiedAt: verification.verifiedAt ?? null,
   };
 
-  const nowIso = new Date().toISOString();
+  const rpcRes = await supabase.rpc('perform_atomic_ticket_checkin', {
+    p_ticket_id: canonicalTicketId,
+    p_registration_id: canonicalRegId,
+    p_registration_code: safeTicketInfo.registrationCode,
+    p_staff_user_id: params.staff.userId,
+    p_staff_email: params.staff.email,
+    p_staff_name: params.staff.fullName,
+    p_scan_method: scanMethod,
+  });
 
-  // Atomic INSERT enforced by UNIQUE(ticket_id) & UNIQUE(registration_id)
-  const insertRes = await supabase
-    .from('ticket_checkins')
-    .insert({
-      id: randomUUID(),
-      ticket_id: canonicalTicketId,
-      registration_id: canonicalRegId,
-      registration_code: safeTicketInfo.registrationCode,
-      checked_in_at: nowIso,
-      checked_in_by_user_id: params.staff.userId,
-      checked_in_by_email: params.staff.email,
-      checked_in_by_name: params.staff.fullName,
-      scan_method: scanMethod,
-    })
-    .select('*')
-    .single();
-
-  if (!insertRes.error && insertRes.data) {
-    const committed = insertRes.data as Record<string, unknown>;
-    const committedAt = pickString(committed, ['checked_in_at', 'created_at'], nowIso);
-    const committedByName = pickString(committed, ['checked_in_by_name'], params.staff.fullName);
-
-    // Record immutable CHECKED_IN audit event (non-blocking if table exists)
-    await supabase.from('ticket_checkin_audit_logs').insert({
-      id: randomUUID(),
-      action: 'CHECKED_IN',
-      ticket_id: canonicalTicketId,
-      registration_id: canonicalRegId,
-      registration_code: safeTicketInfo.registrationCode,
-      performed_by_user_id: params.staff.userId,
-      performed_by_email: params.staff.email,
-      performed_by_role: 'staff',
-      original_checked_in_at: committedAt,
-      original_staff_user_id: params.staff.userId,
-      reason: scanMethod === 'manual' ? 'Manual gate check-in' : 'QR camera check-in',
-    });
-
-    return {
-      approved: true,
-      outcome: 'ENTRY_APPROVED',
-      headline: 'ENTRY APPROVED — CHECKED IN',
-      message: 'Pass verified and attendee checked in.',
-      checkedInAt: committedAt,
-      checkedInByName: committedByName,
-      scanMethod,
-      ticket: safeTicketInfo,
-    };
+  assertStaffRpcReady(rpcRes.error, 'perform_atomic_ticket_checkin');
+  if (rpcRes.error || !rpcRes.data || typeof rpcRes.data !== 'object') {
+    throw new ApiHttpError(
+      500,
+      `Failed to record check-in: ${rpcRes.error?.message || 'Database error'}`,
+      'DB_INSERT_ERROR'
+    );
   }
 
-  assertStaffTablesReady(insertRes.error, 'ticket_checkins');
+  const rpcPayload = rpcRes.data as Record<string, unknown>;
+  const outcome = pickString(rpcPayload, ['outcome']);
+  const checkedInAt = pickOptionalString(rpcPayload, ['checked_in_at']);
+  const checkedInByName = pickOptionalString(rpcPayload, ['checked_in_by_name', 'checked_in_by_email']);
 
-  if (isUniqueViolationError(insertRes.error)) {
-    // Another staff scanner (or earlier scan) already checked in this ticket atomically
-    let existingRow: Record<string, unknown> | null = null;
-    const byTicket = await supabase
-      .from('ticket_checkins')
-      .select('*')
-      .eq('ticket_id', canonicalTicketId)
-      .maybeSingle();
-
-    if (!byTicket.error && byTicket.data) {
-      existingRow = byTicket.data as Record<string, unknown>;
-    } else {
-      const byReg = await supabase
-        .from('ticket_checkins')
-        .select('*')
-        .eq('registration_id', canonicalRegId)
-        .maybeSingle();
-      if (!byReg.error && byReg.data) {
-        existingRow = byReg.data as Record<string, unknown>;
-      }
-    }
-
-    const originalAt = existingRow
-      ? pickOptionalString(existingRow, ['checked_in_at', 'created_at'])
-      : null;
-    const originalStaffName = existingRow
-      ? pickOptionalString(existingRow, ['checked_in_by_name', 'checked_in_by_email'])
-      : null;
-
+  if (outcome === 'ALREADY_CHECKED_IN') {
     return {
       approved: false,
       outcome: 'ALREADY_CHECKED_IN',
       headline: 'ALREADY CHECKED IN',
-      message: originalAt
-        ? `This ticket was already scanned and checked in at ${originalAt}.`
+      message: checkedInAt
+        ? `This ticket was already scanned and checked in at ${checkedInAt}.`
         : 'This ticket has already been checked in at the gate.',
-      checkedInAt: originalAt,
-      checkedInByName: originalStaffName,
+      checkedInAt,
+      checkedInByName,
       scanMethod,
       ticket: safeTicketInfo,
     };
   }
 
-  throw new ApiHttpError(
-    500,
-    `Failed to record check-in: ${insertRes.error?.message || 'Database error'}`,
-    'DB_INSERT_ERROR'
-  );
+  return {
+    approved: true,
+    outcome: 'ENTRY_APPROVED',
+    headline: 'ENTRY APPROVED — CHECKED IN',
+    message: 'Pass verified and attendee checked in.',
+    checkedInAt: checkedInAt || new Date().toISOString(),
+    checkedInByName: checkedInByName || params.staff.fullName,
+    scanMethod,
+    ticket: safeTicketInfo,
+  };
 }
 
 export async function getStaffGateSummary(staff: VerifiedStaffActor): Promise<{
@@ -1002,55 +960,28 @@ export async function reverseTicketCheckin(params: {
 
   const supabase = getSupabaseAdminClient();
 
-  const deleteRes = await supabase
-    .from('ticket_checkins')
-    .delete()
-    .eq('ticket_id', cleanTicketId)
-    .select('*')
-    .maybeSingle();
+  const rpcRes = await supabase.rpc('reverse_ticket_checkin_atomic', {
+    p_ticket_id: cleanTicketId,
+    p_admin_user_id: params.admin.userId,
+    p_admin_email: params.admin.email,
+    p_reason: cleanReason.slice(0, 300),
+  });
 
-  assertStaffTablesReady(deleteRes.error, 'ticket_checkins');
-  if (deleteRes.error) {
+  assertStaffRpcReady(rpcRes.error, 'reverse_ticket_checkin_atomic');
+  if (rpcRes.error || !rpcRes.data || typeof rpcRes.data !== 'object') {
     throw new ApiHttpError(
       500,
-      `Unable to reverse check-in: ${deleteRes.error.message}`,
+      `Unable to reverse check-in: ${rpcRes.error?.message || 'Database error'}`,
       'DB_DELETE_ERROR'
     );
   }
 
-  if (!deleteRes.data) {
+  const rpcPayload = rpcRes.data as Record<string, unknown>;
+  if (rpcPayload.not_found === true || rpcPayload.reversed !== true) {
     throw new ApiHttpError(
       404,
       'No active check-in record found for this ticket ID (it may already have been reversed).',
       'NOT_FOUND'
-    );
-  }
-
-  const deletedRow = deleteRes.data as Record<string, unknown>;
-  const registrationId = pickString(deletedRow, ['registration_id']);
-  const registrationCode = pickString(deletedRow, ['registration_code'], registrationId);
-  const originalCheckedInAt = pickOptionalString(deletedRow, ['checked_in_at', 'created_at']);
-  const originalStaffUserId = pickOptionalString(deletedRow, ['checked_in_by_user_id']);
-
-  const auditRes = await supabase.from('ticket_checkin_audit_logs').insert({
-    id: randomUUID(),
-    action: 'REVERSED',
-    ticket_id: cleanTicketId,
-    registration_id: registrationId,
-    registration_code: registrationCode,
-    performed_by_user_id: params.admin.userId,
-    performed_by_email: params.admin.email,
-    performed_by_role: 'admin',
-    original_checked_in_at: originalCheckedInAt,
-    original_staff_user_id: originalStaffUserId,
-    reason: cleanReason.slice(0, 300),
-  });
-
-  if (auditRes.error) {
-    throw new ApiHttpError(
-      500,
-      `Check-in reversed, but audit log write failed: ${auditRes.error.message}`,
-      'AUDIT_LOG_ERROR'
     );
   }
 
