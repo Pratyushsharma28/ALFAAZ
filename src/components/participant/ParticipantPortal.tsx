@@ -194,12 +194,66 @@ export default function ParticipantPortal({
     let mounted = true;
     const supabase = getParticipantSupabaseClient();
 
+    // Surface Supabase magic-link callback errors (e.g. expired/used link) cleanly
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const callbackError =
+        hashParams.get('error_description') ||
+        searchParams.get('error_description') ||
+        hashParams.get('error') ||
+        searchParams.get('error');
+      const callbackErrorCode = hashParams.get('error_code') || searchParams.get('error_code');
+
+      if (callbackError) {
+        const friendlyError =
+          callbackErrorCode === 'otp_expired'
+            ? 'Your verification link expired or was already used. Request a new 6-digit code or login link below.'
+            : callbackError;
+        setAuthError(friendlyError);
+
+        searchParams.delete('error');
+        searchParams.delete('error_code');
+        searchParams.delete('error_description');
+        const nextQuery = searchParams.toString();
+        window.history.replaceState(
+          null,
+          '',
+          `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`
+        );
+      }
+    }
+
+    const cleanAuthCallbackUrl = () => {
+      if (typeof window === 'undefined') return;
+      const searchParams = new URLSearchParams(window.location.search);
+      let queryChanged = false;
+      if (searchParams.has('code')) {
+        searchParams.delete('code');
+        queryChanged = true;
+      }
+      const hasAuthHash =
+        window.location.hash.includes('access_token') ||
+        window.location.hash.includes('refresh_token') ||
+        window.location.hash.includes('type=magiclink');
+
+      if (queryChanged || hasAuthHash) {
+        const nextQuery = searchParams.toString();
+        window.history.replaceState(
+          null,
+          '',
+          `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`
+        );
+      }
+    };
+
     getActiveParticipantSession()
       .then((session) => {
         if (!mounted) return;
         const email = session?.user?.email?.trim().toLowerCase() ?? null;
         setSessionEmail(email);
         if (email) {
+          cleanAuthCallbackUrl();
           void loadRegistrations(false);
         }
       })
@@ -214,14 +268,7 @@ export default function ParticipantPortal({
       if (nextEmail) {
         setAuthError(null);
         setAuthNotice(null);
-        // Clean magic-link hash params from address bar cleanly
-        if (window.location.hash && window.location.hash.includes('access_token')) {
-          window.history.replaceState(
-            null,
-            '',
-            `${window.location.pathname}${window.location.search}`
-          );
-        }
+        cleanAuthCallbackUrl();
         void loadRegistrations(false);
       } else {
         setPortalData(null);

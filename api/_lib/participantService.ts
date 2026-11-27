@@ -236,7 +236,11 @@ export function deriveRequestOrigin(req: NodeHttpRequest): string {
   const forwardedHost = req.headers['x-forwarded-host'];
   const hostRaw = Array.isArray(forwardedHost)
     ? forwardedHost[0]
-    : forwardedHost || req.headers.host || 'localhost:3000';
+    : forwardedHost ||
+      req.headers.host ||
+      (process.env.VERCEL || process.env.NODE_ENV === 'production'
+        ? 'alfaaz-unfiltered.vercel.app'
+        : 'localhost:3000');
   const host = String(hostRaw).split(',')[0].trim();
   const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
   const proto = protoRaw ? String(protoRaw).split(',')[0].trim() : isLocal ? 'http' : 'https';

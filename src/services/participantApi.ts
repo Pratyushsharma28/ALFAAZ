@@ -1,5 +1,8 @@
 import type { Session } from '@supabase/supabase-js';
-import { getParticipantSupabaseClient } from '../lib/participantSupabaseClient';
+import {
+  getParticipantAuthRedirectUrl,
+  getParticipantSupabaseClient,
+} from '../lib/participantSupabaseClient';
 import type {
   ParticipantPortalPayload,
   TicketQrVerificationResponse,
@@ -93,8 +96,7 @@ export async function requestParticipantEmailOtp(email: string): Promise<{
 
   // 2. Dispatch Email OTP + Magic Link via Supabase Auth
   const supabase = getParticipantSupabaseClient();
-  const redirectUrl =
-    typeof window !== 'undefined' ? `${window.location.origin}/my-tickets` : undefined;
+  const redirectUrl = getParticipantAuthRedirectUrl();
 
   const { error } = await supabase.auth.signInWithOtp({
     email: cleanEmail,
