@@ -5,11 +5,11 @@ import {
   readJsonBody,
   sendErrorResponse,
   sendJson,
-} from './_lib/httpUtils';
+} from './_lib/httpUtils.js';
 import {
   createOrReuseRegistration,
   validateRegistrationInput,
-} from './_lib/registrationService';
+} from './_lib/registrationService.js';
 
 export default async function handler(
   req: NodeHttpRequest,

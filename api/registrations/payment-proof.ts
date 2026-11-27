@@ -5,11 +5,11 @@ import {
   parseMultipartForm,
   sendErrorResponse,
   sendJson,
-} from '../_lib/httpUtils';
+} from '../_lib/httpUtils.js';
 import {
   MAX_PROOF_FILE_SIZE_BYTES,
   submitManualUpiPaymentProof,
-} from '../_lib/registrationService';
+} from '../_lib/registrationService.js';
 
 export const config = {
   api: {

@@ -5,8 +5,8 @@ import {
   type NodeHttpResponse,
   sendErrorResponse,
   sendJson,
-} from '../../_lib/httpUtils';
-import { getRegistrationPaymentStatus } from '../../_lib/registrationService';
+} from '../../_lib/httpUtils.js';
+import { getRegistrationPaymentStatus } from '../../_lib/registrationService.js';
 
 export default async function handler(
   req: NodeHttpRequest,

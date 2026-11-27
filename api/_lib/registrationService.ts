@@ -4,12 +4,12 @@ import {
   ApiHttpError,
   detectProofFileType,
   type ParsedUploadedFile,
-} from './httpUtils';
+} from './httpUtils.js';
 import {
   getSupabaseAdminClient,
   getTableSchemaProperties,
   type TableSchemaMap,
-} from './supabaseAdmin';
+} from './supabaseAdmin.js';
 
 export type EntryPassTierId = 'individual' | 'couple' | 'group';
 export type ParticipationCategory = 'Dance' | 'Singing' | 'Poetry';

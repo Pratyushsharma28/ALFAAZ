@@ -3,9 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
-import registrationsHandler from './api/registrations';
-import paymentProofHandler from './api/registrations/payment-proof';
-import paymentStatusHandler from './api/payments/razorpay/status';
+import registrationsHandler from './api/registrations.js';
+import paymentProofHandler from './api/registrations/payment-proof.js';
+import paymentStatusHandler from './api/payments/razorpay/status.js';
 
 const PORT = Number(process.env.PORT || 3000);
 const isProduction = process.env.NODE_ENV === 'production';
