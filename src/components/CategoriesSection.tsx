@@ -5,13 +5,13 @@ import {
   AmbientNeonParticles,
   EDITORIAL_EASE,
   InteractiveNeonCard,
-  OFFICIAL_GOOGLE_FORM_URL,
   RevealBlock,
   SectionDividerLine,
   staggerContainerVariants,
   staggerItemVariants,
   useIsCompactOrTouch,
 } from './MotionPrimitives';
+import { ParticipationCategory } from '../types/registration';
 
 interface CategoryItem {
   id: 'dance' | 'singing' | 'poetry';
@@ -100,7 +100,11 @@ const CATEGORIES: CategoryItem[] = [
 const EQ_BARS = [0.4, 0.9, 0.55, 1, 0.65, 0.85, 0.45];
 const POETRY_WORDS = ['WORDS', 'SOUL', 'FEEL', 'EXPRESS'] as const;
 
-export function CategoriesSection() {
+interface CategoriesSectionProps {
+  onOpenRegistration: (options?: { category?: ParticipationCategory }) => void;
+}
+
+export function CategoriesSection({ onOpenRegistration }: CategoriesSectionProps) {
   const [activeId, setActiveId] = useState<CategoryItem['id']>('dance');
   const [hoveredCard, setHoveredCard] = useState<CategoryItem['id'] | null>(null);
   const [panelHovered, setPanelHovered] = useState(false);
@@ -532,10 +536,13 @@ export function CategoriesSection() {
                   </ul>
                 </div>
 
-                <motion.a
-                  href={OFFICIAL_GOOGLE_FORM_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <motion.button
+                  type="button"
+                  onClick={() =>
+                    onOpenRegistration({
+                      category: activeCategory.title as ParticipationCategory,
+                    })
+                  }
                   whileHover={shouldReduceMotion ? undefined : { scale: 1.04, y: -2 }}
                   whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
                   transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
@@ -546,7 +553,7 @@ export function CategoriesSection() {
                     className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:rotate-12"
                     aria-hidden="true"
                   />
-                </motion.a>
+                </motion.button>
               </div>
             </motion.div>
           </AnimatePresence>

@@ -7,7 +7,7 @@ import {
   useSpring,
 } from 'motion/react';
 import { ArrowUpRight, Menu, X } from 'lucide-react';
-import { EDITORIAL_EASE, OFFICIAL_GOOGLE_FORM_URL, scrollToSection } from './MotionPrimitives';
+import { EDITORIAL_EASE, scrollToSection } from './MotionPrimitives';
 
 const NAV_LINKS = [
   { label: 'About', href: '#about', id: 'about' },
@@ -24,7 +24,11 @@ interface LogoPathData {
 
 const QUAD_AI_SVG_URL = '/assets/aistudio/Quad_AI_Crimson__1__cf26c6bf.svg';
 
-export function Navbar() {
+interface NavbarProps {
+  onOpenRegistration: () => void;
+}
+
+export function Navbar({ onOpenRegistration }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeId, setActiveId] = useState<string>('');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -179,10 +183,9 @@ export function Navbar() {
 
         {/* Zone 3: 1 primary neon crimson Register Now action + mobile trigger */}
         <div className="flex items-center gap-3 shrink-0">
-          <motion.a
-            href={OFFICIAL_GOOGLE_FORM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <motion.button
+            type="button"
+            onClick={onOpenRegistration}
             whileHover={shouldReduceMotion ? undefined : { scale: 1.04, y: -2 }}
             whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
             transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
@@ -193,7 +196,7 @@ export function Navbar() {
               className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:rotate-12"
               aria-hidden="true"
             />
-          </motion.a>
+          </motion.button>
 
           <motion.button
             type="button"
@@ -258,16 +261,17 @@ export function Navbar() {
                 );
               })}
               <li className="pt-3 pb-2">
-                <a
-                  href={OFFICIAL_GOOGLE_FORM_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 border border-[#FF1744] bg-[#FF1744] px-5 py-2.5 font-display text-lg font-extrabold tracking-wider text-[#EAE7E0] uppercase"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenRegistration();
+                  }}
+                  className="inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 border border-[#FF1744] bg-[#FF1744] px-5 py-2.5 font-display text-lg font-extrabold tracking-wider text-[#EAE7E0] uppercase"
                 >
                   <span>Register Now</span>
                   <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                </a>
+                </button>
               </li>
             </ul>
           </motion.nav>

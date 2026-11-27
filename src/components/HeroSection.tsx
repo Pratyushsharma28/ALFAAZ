@@ -5,7 +5,6 @@ import {
   AmbientNeonParticles,
   EDITORIAL_EASE,
   InteractiveNeonCard,
-  OFFICIAL_GOOGLE_FORM_URL,
   scrollToSection,
   SectionDividerLine,
   useIsCompactOrTouch,
@@ -13,9 +12,10 @@ import {
 
 interface HeroSectionProps {
   onOpenPoster: () => void;
+  onOpenRegistration: () => void;
 }
 
-export function HeroSection({ onOpenPoster }: HeroSectionProps) {
+export function HeroSection({ onOpenPoster, onOpenRegistration }: HeroSectionProps) {
   const shouldReduceMotion = useReducedMotion();
   const isCompactOrTouch = useIsCompactOrTouch();
   const [unfilteredHovered, setUnfilteredHovered] = useState(false);
@@ -265,10 +265,9 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
               className="mt-8 border-t border-[#EAE7E0]/15 pt-7"
             >
               <div className="flex flex-wrap items-center gap-4">
-                <motion.a
-                  href={OFFICIAL_GOOGLE_FORM_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <motion.button
+                  type="button"
+                  onClick={onOpenRegistration}
                   whileHover={shouldReduceMotion ? undefined : { scale: 1.04, y: -2 }}
                   whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
                   transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
@@ -279,7 +278,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
                     className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:rotate-12"
                     aria-hidden="true"
                   />
-                </motion.a>
+                </motion.button>
 
                 <motion.button
                   type="button"

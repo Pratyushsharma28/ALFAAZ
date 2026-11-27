@@ -20,7 +20,7 @@ const FAQ_ITEMS: FaqItem[] = [
     id: 'registration',
     question: 'How do I complete registration and choose my pass?',
     answer:
-      'Pick Individual (₹99), Couple (₹149), or Group (₹199) in the Passes section and submit your details via the official Google Form shared by the Social and Cultural Team, Quad AI. No account login or payment gateway is built into this page.',
+      'Pick Individual (₹99), Couple (₹149), or Group (₹199) in the Passes section or click Register Now to complete your registration form and Razorpay payment directly on this website.',
   },
   {
     id: 'perks',

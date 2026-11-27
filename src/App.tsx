@@ -12,6 +12,8 @@ import { EventDetailsSection } from './components/EventDetailsSection';
 import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
 import { EDITORIAL_EASE } from './components/MotionPrimitives';
+import { RegistrationModal } from './components/RegistrationModal';
+import { EntryPassTierId, ParticipationCategory } from './types/registration';
 
 function getInitialIntroOpen(): boolean {
   if (typeof window === 'undefined') return false;
@@ -24,7 +26,23 @@ function getInitialIntroOpen(): boolean {
 
 export default function App() {
   const [isIntroOpen, setIsIntroOpen] = useState<boolean>(getInitialIntroOpen);
+  const [registrationOpen, setRegistrationOpen] = useState<boolean>(false);
+  const [regPreset, setRegPreset] = useState<{
+    passTier: EntryPassTierId;
+    category?: ParticipationCategory;
+  }>({ passTier: 'individual' });
   const shouldReduceMotion = useReducedMotion();
+
+  const openRegistration = (options?: {
+    passTier?: EntryPassTierId;
+    category?: ParticipationCategory;
+  }) => {
+    setRegPreset({
+      passTier: options?.passTier ?? 'individual',
+      category: options?.category,
+    });
+    setRegistrationOpen(true);
+  };
 
   return (
     <MotionConfig reducedMotion="user">
@@ -38,6 +56,14 @@ export default function App() {
         {/* Opening Official Poster Experience */}
         <IntroPopup isOpen={isIntroOpen} onClose={() => setIsIntroOpen(false)} />
 
+        {/* Integrated Multi-Step Registration + Razorpay Checkout Experience */}
+        <RegistrationModal
+          isOpen={registrationOpen}
+          initialPassTier={regPreset.passTier}
+          initialCategory={regPreset.category}
+          onClose={() => setRegistrationOpen(false)}
+        />
+
         {/* Main Website Shell — smoothly revealed when IntroPopup closes */}
         <motion.div
           initial={false}
@@ -50,7 +76,7 @@ export default function App() {
               ? { duration: 0.01 }
               : { duration: 0.55, ease: EDITORIAL_EASE }
           }
-          aria-hidden={isIntroOpen}
+          aria-hidden={isIntroOpen || registrationOpen}
           className="relative flex min-h-screen flex-col"
         >
           <a
@@ -59,14 +85,17 @@ export default function App() {
           >
             Skip to main content
           </a>
-          <Navbar />
+          <Navbar onOpenRegistration={() => openRegistration()} />
 
           <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
-            <HeroSection onOpenPoster={() => setIsIntroOpen(true)} />
+            <HeroSection
+              onOpenPoster={() => setIsIntroOpen(true)}
+              onOpenRegistration={() => openRegistration()}
+            />
             <CountdownSection />
             <AboutSection />
-            <CategoriesSection />
-            <PricingSection />
+            <CategoriesSection onOpenRegistration={openRegistration} />
+            <PricingSection onOpenRegistration={openRegistration} />
             <PrizePoolSection />
             <EventDetailsSection />
             <FaqSection />

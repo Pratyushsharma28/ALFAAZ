@@ -4,7 +4,6 @@ import { ArrowUpRight, Check, Copy } from 'lucide-react';
 import {
   EDITORIAL_EASE,
   InteractiveNeonCard,
-  OFFICIAL_GOOGLE_FORM_URL,
   RevealBlock,
   SectionDividerLine,
 } from './MotionPrimitives';
@@ -56,6 +55,7 @@ interface TicketPassCardProps {
   isSelected: boolean;
   shouldReduceMotion: boolean | null;
   onSelect: (id: PassTierId) => void;
+  onRegister: (id: PassTierId) => void;
 }
 
 function TicketPassCard({
@@ -64,6 +64,7 @@ function TicketPassCard({
   isSelected,
   shouldReduceMotion,
   onSelect,
+  onRegister,
 }: TicketPassCardProps) {
   const dividerRef = useRef<HTMLDivElement | null>(null);
   const [notchY, setNotchY] = useState<number | null>(null);
@@ -261,13 +262,12 @@ function TicketPassCard({
           />
         </div>
 
-        <motion.a
-          href={OFFICIAL_GOOGLE_FORM_URL}
-          target="_blank"
-          rel="noopener noreferrer"
+        <motion.button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onSelect(tier.id);
+            onRegister(tier.id);
           }}
           whileHover={shouldReduceMotion ? undefined : { scale: 1.03, y: -1 }}
           whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
@@ -283,13 +283,17 @@ function TicketPassCard({
             className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:rotate-12"
             aria-hidden="true"
           />
-        </motion.a>
+        </motion.button>
       </InteractiveNeonCard>
     </motion.div>
   );
 }
 
-export function PricingSection() {
+interface PricingSectionProps {
+  onOpenRegistration: (options?: { passTier?: PassTierId }) => void;
+}
+
+export function PricingSection({ onOpenRegistration }: PricingSectionProps) {
   const [selectedTier, setSelectedTier] = useState<PassTierId>('individual');
   const [copiedSummary, setCopiedSummary] = useState(false);
   const shouldReduceMotion = useReducedMotion();
@@ -374,7 +378,7 @@ export function PricingSection() {
 
           <p className="max-w-md text-sm leading-relaxed text-[#EAE7E0]/75">
             Every registered participant receives an official participation certificate and goodies.
-            All passes register directly via the official Google Form.
+            All passes register directly on this website with Razorpay checkout.
           </p>
         </RevealBlock>
         <SectionDividerLine />
@@ -389,11 +393,12 @@ export function PricingSection() {
               isSelected={tier.id === selectedTier}
               shouldReduceMotion={shouldReduceMotion}
               onSelect={setSelectedTier}
+              onRegister={(id) => onOpenRegistration({ passTier: id })}
             />
           ))}
         </div>
 
-        {/* Dark Crimson-Accent Google Form Handoff Panel */}
+        {/* Dark Crimson-Accent Integrated Registration Panel */}
         <RevealBlock delay={0.1} className="mt-8">
           <InteractiveNeonCard
             accentColor="#FF1744"
@@ -404,15 +409,15 @@ export function PricingSection() {
           >
             <div className="relative z-10">
               <p className="font-mono-num text-xs font-semibold tracking-widest text-[#FF1744] uppercase">
-                Official Google Form Registration
+                Official Website Registration
               </p>
               <h3 className="mt-1 font-display text-3xl font-black tracking-tight text-[#EAE7E0] uppercase sm:text-4xl">
                 {activeTier.name} Pass —{' '}
                 <span className="text-[#C8F36B] tabular-nums">{activeTier.price}</span>
               </h3>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#EAE7E0]/75">
-                Complete your entry directly on the official Social and Cultural Team Google Form. No
-                login or online payment gateway is required on this page.
+                Complete your entry and secure pass payment via Razorpay Checkout directly on this
+                website.
               </p>
             </div>
 
@@ -444,21 +449,20 @@ export function PricingSection() {
                 )}
               </motion.button>
 
-              <motion.a
-                href={OFFICIAL_GOOGLE_FORM_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+              <motion.button
+                type="button"
+                onClick={() => onOpenRegistration({ passTier: activeTier.id })}
                 whileHover={shouldReduceMotion ? undefined : { scale: 1.04, y: -2 }}
                 whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
                 transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
-                className="neon-cta-breathe group inline-flex min-h-[44px] items-center gap-2 border border-[#FF1744] bg-[#FF1744] px-6 py-3 font-display text-lg font-extrabold tracking-wider text-[#EAE7E0] uppercase transition-all duration-200 hover:bg-[#ff2b54] hover:shadow-[0_0_34px_rgba(255,23,68,0.8)] whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EAE7E0]"
+                className="neon-cta-breathe group inline-flex min-h-[44px] cursor-pointer items-center gap-2 border border-[#FF1744] bg-[#FF1744] px-6 py-3 font-display text-lg font-extrabold tracking-wider text-[#EAE7E0] uppercase transition-all duration-200 hover:bg-[#ff2b54] hover:shadow-[0_0_34px_rgba(255,23,68,0.8)] whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EAE7E0]"
               >
                 <span>Register Now</span>
                 <ArrowUpRight
                   className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:rotate-12"
                   aria-hidden="true"
                 />
-              </motion.a>
+              </motion.button>
             </div>
           </InteractiveNeonCard>
         </RevealBlock>
