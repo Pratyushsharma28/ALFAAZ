@@ -36,7 +36,7 @@ const PRIZES: PrizeTier[] = [
   {
     rank: '03',
     label: 'Third Place',
-    amount: '₹1,000',
+    amount: '₹2,000',
     note: 'Third Place Recognition',
     colSpan: 'lg:col-span-3 lg:mt-12',
   },
@@ -84,7 +84,7 @@ export function PrizePoolSection() {
               04. Prize Pool
             </p>
             <h2 className="mt-3 font-display text-[clamp(3.25rem,6.5vw,5.75rem)] leading-[0.86] font-black tracking-tight uppercase">
-              <span className="neon-text-crimson text-[#FF1744]">₹9,000</span> Cash Pool.
+              <span className="neon-text-crimson text-[#FF1744]">₹10,000</span> Total Cash Prizes.
             </h2>
           </div>
 
@@ -150,7 +150,7 @@ export function PrizePoolSection() {
                 </div>
 
                 <p className="relative z-10 border-t border-[#EAE7E0]/15 pt-4 text-xs tracking-wider text-[#EAE7E0]/70 uppercase">
-                  Trophy · Official Certificate
+                  Official Certificate
                 </p>
               </InteractiveNeonCard>
             </motion.div>

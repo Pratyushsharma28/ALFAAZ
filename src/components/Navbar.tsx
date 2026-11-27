@@ -17,7 +17,7 @@ const NAV_LINKS = [
   { label: 'FAQ', href: '#faq', id: 'faq' },
 ];
 
-interface ShieldPathData {
+interface LogoPathData {
   d: string;
   transform: string;
 }
@@ -28,7 +28,7 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeId, setActiveId] = useState<string>('');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [shieldPaths, setShieldPaths] = useState<ShieldPathData[]>([]);
+  const [logoPaths, setLogoPaths] = useState<LogoPathData[]>([]);
   const shouldReduceMotion = useReducedMotion();
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -82,14 +82,9 @@ export function Navbar() {
             d: el.getAttribute('d') ?? '',
             transform: el.getAttribute('transform') ?? '',
           }))
-          .filter((item) => {
-            if (!item.d) return false;
-            const match = item.transform.match(/translate\(([^,]+),/);
-            const tx = match ? parseFloat(match[1]) : 0;
-            return tx < 4000;
-          });
+          .filter((item) => Boolean(item.d));
         if (!cancelled && paths.length > 0) {
-          setShieldPaths(paths);
+          setLogoPaths(paths);
         }
       })
       .catch(() => {
@@ -110,30 +105,28 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-30 border-b border-[#EAE7E0]/15 bg-[#050505]/92 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-2 px-6 py-4 md:gap-8 lg:px-10">
-        {/* Zone 1: Unified ALFAAZ X QUAD AI brand lockup using exact uploaded Quad AI SVG emblem */}
+        {/* Zone 1: Official QUAD AI SVG logo lockup */}
         <a
           href="#top"
-          aria-label="ALFAAZ X QUAD AI — Back to top"
+          aria-label="QUAD AI — Back to top"
           onClick={(e) => {
             setActiveId('');
             handleNavClick(e, '#top');
           }}
-          className="inline-flex items-center gap-1.5 font-display text-[17px] leading-none font-black tracking-tight text-[#EAE7E0] uppercase transition-all duration-200 hover:text-[#FF1744] hover:drop-shadow-[0_0_12px_rgba(255,23,68,0.55)] whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744] sm:gap-2 sm:text-2xl"
+          className="inline-flex items-center text-[#EAE7E0] transition-all duration-200 hover:text-[#FF1744] hover:drop-shadow-[0_0_12px_rgba(255,23,68,0.55)] shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
         >
-          <span>ALFAAZ</span>
-          <span aria-hidden="true">X</span>
           <svg
-            viewBox="460 445 2980 3115"
+            viewBox="460 445 14060 3115"
             preserveAspectRatio="xMidYMid meet"
             fill="currentColor"
-            aria-hidden="true"
-            className="h-[16px] w-[15px] shrink-0 sm:h-[21px] sm:w-[20px]"
+            role="img"
+            aria-label="QUAD AI"
+            className="h-[22px] w-auto aspect-[14060/3115] shrink-0 sm:h-[26px]"
           >
-            {shieldPaths.map((p, idx) => (
+            {logoPaths.map((p, idx) => (
               <path key={idx} d={p.d} transform={p.transform} />
             ))}
           </svg>
-          <span>QUAD AI</span>
         </a>
 
         {/* Zone 2: 5 concise single-line text links with neon crimson active & hover underlines */}

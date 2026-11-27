@@ -247,8 +247,8 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
                   AI, Bengaluru. Step onto the floor to{' '}
                   <span className="neon-text-cyan text-[#00E5FF] font-semibold">PERFORM</span> and{' '}
                   <span className="neon-text-purple text-[#D500F9] font-semibold">EXPRESS</span>{' '}
-                  without constraints, compete for ₹9,000 in cash awards, and walk away with an
-                  official certificate and goodies.
+                  without constraints, and compete for ₹10,000 in total cash prizes. Certificates
+                  &amp; goodies will be awarded to winners only.
                 </p>
               </motion.div>
             </div>
@@ -344,7 +344,7 @@ export function HeroSection({ onOpenPoster }: HeroSectionProps) {
                   className="cursor-pointer border border-[#EAE7E0]/12 bg-[#070709]/85 p-3 transition-colors hover:border-[#00E5FF]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
                 >
                   <span className="relative z-10 block tracking-widest text-[#EAE7E0]/75 uppercase">
-                    Every Entry
+                    Winners Only
                   </span>
                   <span className="relative z-10 mt-1 block text-sm font-semibold text-[#EAE7E0]">
                     Cert + Goodies

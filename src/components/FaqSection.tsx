@@ -38,7 +38,7 @@ const FAQ_ITEMS: FaqItem[] = [
     id: 'prizes',
     question: 'How is the prize pool distributed?',
     answer:
-      'The top three standout acts take home ₹5,000 (1st), ₹3,000 (2nd), and ₹1,000 (3rd), evaluated on raw energy, originality, stage command, and audience resonance.',
+      'The top three standout acts take home ₹5,000 (1st), ₹3,000 (2nd), and ₹2,000 (3rd), evaluated on raw energy, originality, stage command, and audience resonance.',
   },
 ];
 

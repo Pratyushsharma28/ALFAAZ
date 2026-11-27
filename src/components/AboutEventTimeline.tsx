@@ -32,8 +32,8 @@ const TIMELINE_DETAILS: TimelineDetail[] = [
   {
     id: 'prizes',
     label: 'Prize Pool',
-    value: '₹9,000 Cash Pool',
-    meta: '1st ₹5,000 · 2nd ₹3,000 · 3rd ₹1,000',
+    value: '₹10,000 Total Cash Prizes',
+    meta: '1st ₹5,000 · 2nd ₹3,000 · 3rd ₹2,000',
     accent: '#C8F36B',
     Icon: Trophy,
   },
