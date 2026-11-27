@@ -440,6 +440,7 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
     );
 
     const proofPath = pickString(row, [
+      'proof_storage_path',
       'proof_path',
       'storage_path',
       'file_path',
@@ -605,12 +606,12 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
         pickOptionalString(row, ['verified_by', 'reviewed_by']) ?? latestSub?.verifiedBy,
       latestSubmissionId: latestSub?.id,
       proofPath:
-        pickOptionalString(row, ['proof_path', 'storage_path', 'file_path']) ??
+        pickOptionalString(row, ['proof_storage_path', 'proof_path', 'storage_path', 'file_path']) ??
         latestSub?.proofPath,
       proofMimeType:
-        pickOptionalString(row, ['mime_type', 'proof_mime_type']) ?? latestSub?.proofMimeType,
+        pickOptionalString(row, ['proof_mime_type', 'mime_type']) ?? latestSub?.proofMimeType,
       proofFileName:
-        pickOptionalString(row, ['file_name', 'proof_file_name']) ?? latestSub?.proofFileName,
+        pickOptionalString(row, ['proof_file_name', 'file_name']) ?? latestSub?.proofFileName,
       raw: row,
     };
   });

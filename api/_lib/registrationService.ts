@@ -213,6 +213,7 @@ function buildSchemaAwarePayload(
   schema: TableSchemaMap | null,
   candidates: Array<{
     keys: string[];
+    populateAllMatched?: boolean;
     value:
       | string
       | number
@@ -225,12 +226,17 @@ function buildSchemaAwarePayload(
 
   for (const item of candidates) {
     if (schema) {
-      const matchedKey = item.keys.find((key) => Object.prototype.hasOwnProperty.call(schema, key));
-      if (!matchedKey) continue;
-      const colSchema = schema[matchedKey];
-      const resolved = typeof item.value === 'function' ? item.value(colSchema) : item.value;
-      if (resolved !== undefined) {
-        payload[matchedKey] = resolved;
+      const matchedKeys = item.populateAllMatched
+        ? item.keys.filter((key) => Object.prototype.hasOwnProperty.call(schema, key))
+        : item.keys.filter((key) => Object.prototype.hasOwnProperty.call(schema, key)).slice(0, 1);
+      if (matchedKeys.length === 0) continue;
+
+      for (const matchedKey of matchedKeys) {
+        const colSchema = schema[matchedKey];
+        const resolved = typeof item.value === 'function' ? item.value(colSchema) : item.value;
+        if (resolved !== undefined) {
+          payload[matchedKey] = resolved;
+        }
       }
     } else {
       const primaryKey = item.keys[0];
@@ -784,8 +790,27 @@ export async function submitManualUpiPaymentProof(params: {
     );
   }
 
+  const uploadedStoragePath = (uploadRes.data?.path || objectPath || '').trim();
+  if (!uploadedStoragePath) {
+    throw new ApiHttpError(
+      500,
+      'Payment proof upload succeeded without returning a valid storage object path.',
+      'STORAGE_UPLOAD_ERROR'
+    );
+  }
+
   // Strictly Pending status — NEVER auto-verified on user submission
   const pendingStatusCandidates = ['pending', 'pending_verification', 'PENDING', 'PENDING_VERIFICATION'];
+
+  const proofPathKeys = [
+    'proof_storage_path',
+    'proof_path',
+    'storage_path',
+    'file_path',
+    'proof_file_path',
+    'object_path',
+    'screenshot_path',
+  ];
 
   const submissionPayload = buildSchemaAwarePayload(subSchema, [
     { keys: ['registration_id'], value: regRowPrimaryId },
@@ -797,23 +822,23 @@ export async function submitManualUpiPaymentProof(params: {
     },
     { keys: ['utr', 'transaction_id', 'utr_number', 'upi_ref'], value: utr },
     {
-      keys: [
-        'proof_path',
-        'storage_path',
-        'file_path',
-        'proof_file_path',
-        'object_path',
-        'screenshot_path',
-      ],
-      value: objectPath,
+      keys: proofPathKeys,
+      populateAllMatched: true,
+      value: uploadedStoragePath,
     },
     {
-      keys: ['mime_type', 'proof_mime_type', 'content_type', 'file_type'],
+      keys: ['proof_mime_type', 'mime_type', 'content_type', 'file_type'],
+      populateAllMatched: true,
       value: verifiedFile.mimeType,
     },
     {
-      keys: ['file_name', 'original_filename', 'proof_file_name'],
+      keys: ['proof_file_name', 'file_name', 'original_filename', 'proof_filename'],
+      populateAllMatched: true,
       value: safeOriginalName,
+    },
+    {
+      keys: ['proof_file_size', 'file_size', 'file_size_bytes'],
+      value: file.buffer.length,
     },
     {
       keys: ['full_name', 'participant_name', 'name'],
@@ -845,6 +870,20 @@ export async function submitManualUpiPaymentProof(params: {
     { keys: ['idempotency_key'], value: idempotencyKey },
   ]);
 
+  const hasPopulatedProofPath = proofPathKeys.some((key) => {
+    const val = submissionPayload[key];
+    return typeof val === 'string' && val.trim().length > 0;
+  });
+
+  if (!hasPopulatedProofPath) {
+    await supabase.storage.from(PAYMENT_PROOFS_BUCKET).remove([uploadedStoragePath]);
+    throw new ApiHttpError(
+      500,
+      'Unable to map a non-empty storage path column on payment_submissions.',
+      'SCHEMA_MISMATCH'
+    );
+  }
+
   try {
     await insertRowAdaptively(
       supabase,
@@ -855,7 +894,7 @@ export async function submitManualUpiPaymentProof(params: {
     );
   } catch (insertErr) {
     // Clean up orphaned proof file if database insert failed
-    await supabase.storage.from(PAYMENT_PROOFS_BUCKET).remove([objectPath]);
+    await supabase.storage.from(PAYMENT_PROOFS_BUCKET).remove([uploadedStoragePath]);
     throw insertErr;
   }
 
@@ -865,9 +904,13 @@ export async function submitManualUpiPaymentProof(params: {
     : 'registration_id';
   const regSyncPayload = buildSchemaAwarePayload(regSchema, [
     { keys: ['utr', 'transaction_id', 'utr_number', 'upi_ref'], value: utr },
-    { keys: ['proof_path', 'storage_path', 'file_path'], value: objectPath },
-    { keys: ['mime_type', 'proof_mime_type'], value: verifiedFile.mimeType },
-    { keys: ['file_name', 'proof_file_name'], value: safeOriginalName },
+    {
+      keys: ['proof_storage_path', 'proof_path', 'storage_path', 'file_path'],
+      populateAllMatched: true,
+      value: uploadedStoragePath,
+    },
+    { keys: ['proof_mime_type', 'mime_type'], populateAllMatched: true, value: verifiedFile.mimeType },
+    { keys: ['proof_file_name', 'file_name'], populateAllMatched: true, value: safeOriginalName },
   ]);
 
   if (Object.keys(regSyncPayload).length > 0) {
