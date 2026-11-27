@@ -63,7 +63,7 @@ export interface ParticipantPortalPayload {
 
 export interface TicketQrVerificationResponse {
   valid: boolean;
-  status: 'verified' | 'pending' | 'rejected' | 'invalid';
+  status: 'verified' | 'revoked' | 'pending' | 'invalid';
   statusLabel: string;
   message: string;
   ticketId: string;

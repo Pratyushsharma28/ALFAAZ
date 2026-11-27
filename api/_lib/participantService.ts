@@ -81,7 +81,7 @@ export interface ParticipantRegistrationItem {
 
 export interface TicketQrVerificationResponse {
   valid: boolean;
-  status: 'verified' | 'pending' | 'rejected' | 'invalid';
+  status: 'verified' | 'revoked' | 'pending' | 'invalid';
   statusLabel: string;
   message: string;
   ticketId: string;
@@ -225,26 +225,67 @@ function extractMissingColumnName(message: string): string | null {
   return null;
 }
 
-export function deriveRequestOrigin(req: NodeHttpRequest): string {
-  const originHeader = typeof req.headers.origin === 'string' ? req.headers.origin.trim() : '';
-  if (originHeader && /^https?:\/\//i.test(originHeader)) {
-    return originHeader.replace(/\/+$/, '');
-  }
+const PRODUCTION_SITE_URL = 'https://alfaaz-unfiltered.vercel.app';
 
+export function deriveRequestOrigin(req: NodeHttpRequest): string {
+  const configuredPublic = (
+    process.env.PUBLIC_SITE_URL ??
+    process.env.VITE_PUBLIC_SITE_URL ??
+    ''
+  )
+    .trim()
+    .replace(/\/+$/, '');
+
+  const originHeader = typeof req.headers.origin === 'string' ? req.headers.origin.trim() : '';
   const forwardedProto = req.headers['x-forwarded-proto'];
   const protoRaw = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
   const forwardedHost = req.headers['x-forwarded-host'];
   const hostRaw = Array.isArray(forwardedHost)
     ? forwardedHost[0]
-    : forwardedHost ||
-      req.headers.host ||
-      (process.env.VERCEL || process.env.NODE_ENV === 'production'
-        ? 'alfaaz-unfiltered.vercel.app'
-        : 'localhost:3000');
-  const host = String(hostRaw).split(',')[0].trim();
-  const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
-  const proto = protoRaw ? String(protoRaw).split(',')[0].trim() : isLocal ? 'http' : 'https';
-  return `${proto}://${host}`;
+    : forwardedHost || req.headers.host || '';
+  const host = String(hostRaw).split(',')[0].trim().toLowerCase();
+
+  // Keep local origin only for genuine local development/tests
+  const isLocalHost =
+    host.startsWith('localhost') || host.startsWith('127.0.0.1') || host.startsWith('[::1]');
+  if (isLocalHost) {
+    const proto = protoRaw ? String(protoRaw).split(',')[0].trim() : 'http';
+    return `${proto}://${host}`;
+  }
+
+  if (!host && originHeader) {
+    try {
+      const parsed = new URL(originHeader);
+      if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+        return parsed.origin;
+      }
+    } catch {
+      // ignore invalid origin header
+    }
+  }
+
+  if (configuredPublic) {
+    try {
+      const parsed = new URL(configuredPublic);
+      if (parsed.protocol === 'https:') {
+        return parsed.origin;
+      }
+    } catch {
+      // ignore invalid configured public URL
+    }
+  }
+
+  // Use custom non-preview domain if hosted on one; otherwise canonical production URL
+  if (
+    host &&
+    !host.endsWith('.vercel.app') &&
+    !host.endsWith('.run.app') &&
+    !host.includes('localhost')
+  ) {
+    return `https://${host}`;
+  }
+
+  return PRODUCTION_SITE_URL;
 }
 
 async function fetchRegistrationsForEmail(
@@ -1058,8 +1099,8 @@ export async function verifyPublicTicketQr(params: {
       ...baseInfo,
       valid: false,
       status: 'invalid',
-      statusLabel: 'Invalid Ticket Signature',
-      message: 'This QR code does not have a valid server signature.',
+      statusLabel: 'INVALID TICKET',
+      message: 'This ticket QR code has an invalid or tampered server signature.',
     };
   }
 
@@ -1072,8 +1113,8 @@ export async function verifyPublicTicketQr(params: {
       ...baseInfo,
       valid: false,
       status: 'invalid',
-      statusLabel: 'Ticket Not Found',
-      message: 'No registration record was found for this ticket.',
+      statusLabel: 'INVALID TICKET',
+      message: 'Unknown ticket. No registration record matches this verification link.',
     };
   }
 
@@ -1088,22 +1129,55 @@ export async function verifyPublicTicketQr(params: {
   const built = buildRegistrationItem({
     regRow,
     submissions: subs,
-    requestOrigin: 'https://alfaaz.quadai',
+    requestOrigin: PRODUCTION_SITE_URL,
   });
 
-  if (built.paymentStatus !== 'verified' || !built.ticket || built.ticket.ticketId !== ticketId) {
+  const explicitTicketStatus = (
+    pickOptionalString(regRow, ['ticket_status', 'pass_status', 'payment_status', 'status']) ?? ''
+  ).toLowerCase();
+  const isExplicitlyRevoked =
+    regRow.is_revoked === true ||
+    regRow.ticket_revoked === true ||
+    Boolean(pickOptionalString(regRow, ['revoked_at'])) ||
+    ['revoked', 'cancelled', 'canceled', 'void', 'invalidated'].includes(explicitTicketStatus);
+
+  // If verified in DB, verify ticketId strictly matches derived/stored ticketId
+  if (built.paymentStatus === 'verified' && built.ticket && built.ticket.ticketId !== ticketId) {
     return {
       ...baseInfo,
       valid: false,
-      status: built.paymentStatus === 'rejected' ? 'rejected' : 'pending',
-      statusLabel:
-        built.paymentStatus === 'rejected'
-          ? 'Payment Rejected — Pass Invalid'
-          : 'Unverified — Payment Not Confirmed',
+      status: 'invalid',
+      statusLabel: 'INVALID TICKET',
+      message: 'Ticket identifier does not match the registered pass record.',
+    };
+  }
+
+  if (isExplicitlyRevoked || built.paymentStatus === 'rejected') {
+    return {
+      ...baseInfo,
+      valid: false,
+      status: 'revoked',
+      statusLabel: 'REVOKED / NOT VALID',
       message:
-        built.paymentStatus === 'rejected'
-          ? 'This registration payment was rejected and is not valid for entry.'
-          : 'This registration payment is still pending admin verification. Entry passes are only valid once verified.',
+        isExplicitlyRevoked
+          ? 'This ticket has been revoked and is no longer valid for event entry.'
+          : 'This registration payment was rejected. Entry is not permitted.',
+      registrationCode: built.registrationCode,
+      participantOrTeamName: built.teamOrIndividualName,
+      passCategoryLabel: built.passCategoryLabel,
+      categoriesDisplay: built.categoriesDisplay,
+      participantCount: built.participantCount,
+    };
+  }
+
+  if (built.paymentStatus !== 'verified' || !built.ticket) {
+    return {
+      ...baseInfo,
+      valid: false,
+      status: 'pending',
+      statusLabel: 'REVOKED / NOT VALID',
+      message:
+        'Payment has not been verified for this registration. Passes are valid only after admin confirmation.',
       registrationCode: built.registrationCode,
       participantOrTeamName: built.teamOrIndividualName,
       passCategoryLabel: built.passCategoryLabel,
@@ -1116,8 +1190,8 @@ export async function verifyPublicTicketQr(params: {
     ...baseInfo,
     valid: true,
     status: 'verified',
-    statusLabel: 'Verified — Official Confirmed Pass',
-    message: 'Payment verified and pass confirmed for ALFAAZ — UNFILTERED entry.',
+    statusLabel: 'VALID TICKET',
+    message: 'Confirmed and payment verified for entry to ALFAAZ — UNFILTERED.',
     registrationCode: built.registrationCode,
     participantOrTeamName: built.teamOrIndividualName,
     passCategoryLabel: built.passCategoryLabel,

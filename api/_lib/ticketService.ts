@@ -84,7 +84,7 @@ export function buildVerifiedTicketUrls(params: {
 
   const cleanOrigin = params.requestOrigin.replace(/\/+$/, '');
   const query = new URLSearchParams({
-    verify: ticketId,
+    ticketId,
     reg: params.registrationId,
     sig: signature,
   });
@@ -92,7 +92,7 @@ export function buildVerifiedTicketUrls(params: {
   return {
     ticketId,
     signature,
-    qrVerificationUrl: `${cleanOrigin}/my-tickets?${query.toString()}`,
+    qrVerificationUrl: `${cleanOrigin}/verify-ticket?${query.toString()}`,
   };
 }
 

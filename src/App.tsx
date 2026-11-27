@@ -17,10 +17,21 @@ import { EntryPassTierId, ParticipationCategory } from './types/registration';
 
 const AdminPortal = lazy(() => import('./components/admin/AdminPortal'));
 const ParticipantPortal = lazy(() => import('./components/participant/ParticipantPortal'));
+const TicketVerificationPage = lazy(() => import('./components/participant/TicketVerificationPage'));
 
 function isAdminPath(pathname: string): boolean {
   const normalized = pathname.replace(/\/+$/, '') || '/';
   return normalized === '/admin' || normalized.startsWith('/admin/');
+}
+
+function isVerifyTicketPath(pathname: string): boolean {
+  const normalized = pathname.replace(/\/+$/, '') || '/';
+  return (
+    normalized === '/verify-ticket' ||
+    normalized.startsWith('/verify-ticket/') ||
+    normalized === '/verify' ||
+    normalized.startsWith('/verify/')
+  );
 }
 
 function isMyTicketsPath(pathname: string): boolean {
@@ -87,6 +98,27 @@ export default function App() {
           }
         >
           <AdminPortal />
+        </Suspense>
+      </MotionConfig>
+    );
+  }
+
+  if (isVerifyTicketPath(pathname)) {
+    return (
+      <MotionConfig reducedMotion="user">
+        <Suspense
+          fallback={
+            <div className="underground-surface flex min-h-screen items-center justify-center bg-[#050505] text-[#EAE7E0]">
+              <p className="font-mono-num text-xs tracking-widest text-[#EAE7E0]/75 uppercase">
+                Loading Ticket Verification...
+              </p>
+            </div>
+          }
+        >
+          <TicketVerificationPage
+            onNavigateHome={() => navigateTo('/')}
+            onNavigateMyTickets={() => navigateTo('/my-tickets')}
+          />
         </Suspense>
       </MotionConfig>
     );

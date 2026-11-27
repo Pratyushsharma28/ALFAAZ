@@ -76,9 +76,9 @@ function readQrVerifyParams(): {
 } | null {
   if (typeof window === 'undefined') return null;
   const params = new URLSearchParams(window.location.search);
-  const ticketId = params.get('verify')?.trim() ?? '';
-  const registrationId = params.get('reg')?.trim() ?? '';
-  const signature = params.get('sig')?.trim() ?? '';
+  const ticketId = (params.get('ticketId') ?? params.get('verify') ?? '').trim();
+  const registrationId = (params.get('reg') ?? params.get('registrationId') ?? '').trim();
+  const signature = (params.get('sig') ?? '').trim();
   if (!ticketId || !registrationId || !signature) return null;
   return { ticketId, registrationId, signature };
 }
@@ -377,12 +377,17 @@ export default function ParticipantPortal({
   const handleInspectQrUrl = (verificationUrl: string) => {
     try {
       const parsed = new URL(verificationUrl);
-      const ticketId = parsed.searchParams.get('verify') || '';
+      const ticketId = parsed.searchParams.get('ticketId') || parsed.searchParams.get('verify') || '';
       const registrationId = parsed.searchParams.get('reg') || '';
       const signature = parsed.searchParams.get('sig') || '';
       if (ticketId && registrationId && signature) {
-        window.history.pushState(null, '', `/my-tickets${parsed.search}`);
-        setQrParams({ ticketId, registrationId, signature });
+        const nextQuery = new URLSearchParams({
+          ticketId,
+          reg: registrationId,
+          sig: signature,
+        });
+        window.history.pushState(null, '', `/verify-ticket?${nextQuery.toString()}`);
+        window.dispatchEvent(new PopStateEvent('popstate'));
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch {
@@ -570,8 +575,19 @@ export default function ParticipantPortal({
           </section>
         )}
 
-        {/* Loading Auth State */}
-        {authChecking ? (
+        {/* Loading / Auth / Portal States (bypass login prompt when scanning a QR verification link) */}
+        {qrParams && !sessionEmail ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border border-[#EAE7E0]/15 bg-[#0A0A0D] px-5 py-4 text-xs text-[#EAE7E0]/75">
+            <span>Public ticket verification requires no email or OTP login.</span>
+            <button
+              type="button"
+              onClick={dismissQrParams}
+              className="cursor-pointer font-mono-num text-xs font-semibold text-[#C8F36B] underline underline-offset-4 hover:text-[#EAE7E0]"
+            >
+              Sign in to My Tickets Portal →
+            </button>
+          </div>
+        ) : authChecking ? (
           <div className="flex min-h-[320px] flex-col items-center justify-center border border-[#EAE7E0]/15 bg-[#0A0A0D] p-8 text-center">
             <Loader2 className="h-7 w-7 animate-spin text-[#FF1744]" aria-hidden="true" />
             <p className="mt-4 font-mono-num text-xs tracking-widest text-[#EAE7E0]/70 uppercase">
