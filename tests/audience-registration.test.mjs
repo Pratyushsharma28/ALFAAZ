@@ -1028,8 +1028,18 @@ test('7. Admin checkins API filters checkedInTickets, auditLogs, and ticketStatu
   assert.ok(participantReport.json.auditLogs.every((l) => l.registrationType === 'PARTICIPANT'));
   assert.ok(participantReport.json.ticketStatuses.every((t) => t.registrationType === 'PARTICIPANT'));
   // Combined & split stats remain intact for dashboard summary counters
+  assert.equal(participantReport.json.stats.totalValidTickets, 2);
+  assert.equal(participantReport.json.stats.checkedInCount, 1);
+  assert.equal(participantReport.json.stats.remainingCount, 1);
+  assert.equal(participantReport.json.stats.checkInRatePercent, 50);
+  assert.equal(participantReport.json.stats.participantValidTickets, 1);
   assert.equal(participantReport.json.stats.participantCheckedInCount, 1);
+  assert.equal(participantReport.json.stats.participantRemainingCount, 0);
+  assert.equal(participantReport.json.stats.participantCheckInRatePercent, 100);
+  assert.equal(participantReport.json.stats.audienceValidTickets, 1);
   assert.equal(participantReport.json.stats.audienceCheckedInCount, 0);
+  assert.equal(participantReport.json.stats.audienceRemainingCount, 1);
+  assert.equal(participantReport.json.stats.audienceCheckInRatePercent, 0);
 
   // Scoped AUDIENCE filter returns zero PARTICIPANT records
   const audienceReport = await callApiOverHttp(handlers.adminCheckins, {
@@ -1165,6 +1175,202 @@ test('8. Admin scoped section selector strictly partitions PARTICIPANT vs AUDIEN
     assert.equal(audienceSection.stats.individualCount, 0);
   } finally {
     rmSync(adminApiOut, { recursive: true, force: true });
+  }
+});
+
+test('9. Admin scoped check-in selector strictly separates PARTICIPANT and AUDIENCE check-in workspaces and stats', async () => {
+  const adminCheckinOut = mkdtempSync(path.join(WORKSPACE_ROOT, '.tmp-admin-checkin-sel-'));
+  try {
+    execFileSync(
+      'npx',
+      [
+        'esbuild',
+        path.join(WORKSPACE_ROOT, 'src/services/adminSelectors.ts'),
+        '--bundle',
+        '--format=esm',
+        '--platform=node',
+        '--out-extension:.js=.mjs',
+        `--outdir=${adminCheckinOut}`,
+      ],
+      { cwd: WORKSPACE_ROOT, stdio: 'pipe' }
+    );
+
+    const selectors = await import(
+      pathToFileURL(path.join(adminCheckinOut, 'adminSelectors.mjs')).href
+    );
+
+    const mixedReport = {
+      stats: {
+        totalValidTickets: 5,
+        checkedInCount: 3,
+        remainingCount: 2,
+        checkInRatePercent: 60,
+        participantValidTickets: 3,
+        participantCheckedInCount: 2,
+        participantRemainingCount: 1,
+        participantCheckInRatePercent: 67,
+        audienceValidTickets: 2,
+        audienceCheckedInCount: 1,
+        audienceRemainingCount: 1,
+        audienceCheckInRatePercent: 50,
+      },
+      checkedInTickets: [
+        {
+          id: 'chk-p1',
+          ticketId: 'ALFTKT-P1',
+          registrationId: 'reg-p1',
+          registrationCode: 'ALF-P1',
+          registrationType: 'PARTICIPANT',
+          participantOrTeamName: 'Rohan Live',
+          fullName: 'Rohan Kulkarni',
+          passCategoryLabel: 'INDIVIDUAL',
+          categoriesDisplay: 'Poetry, Singing',
+          participantCount: 1,
+          checkedInAt: '2026-12-15T10:00:00.000Z',
+          checkedInByUserId: STAFF_A.id,
+          checkedInByName: 'Gate Staff A',
+          checkedInByEmail: STAFF_A.email,
+          scanMethod: 'qr',
+        },
+        {
+          id: 'chk-p2',
+          ticketId: 'ALFTKT-P2',
+          registrationId: 'reg-p2',
+          registrationCode: 'ALF-P2',
+          registrationType: 'PARTICIPANT',
+          participantOrTeamName: 'Crew Alpha',
+          fullName: 'Crew Captain',
+          passCategoryLabel: 'GROUP',
+          categoriesDisplay: 'Dance',
+          participantCount: 4,
+          checkedInAt: '2026-12-15T10:05:00.000Z',
+          checkedInByUserId: STAFF_A.id,
+          checkedInByName: 'Gate Staff A',
+          checkedInByEmail: STAFF_A.email,
+          scanMethod: 'manual',
+        },
+        {
+          id: 'chk-a1',
+          ticketId: 'ALFTKT-A1',
+          registrationId: 'reg-a1',
+          registrationCode: 'ALF-A1',
+          registrationType: 'AUDIENCE',
+          participantOrTeamName: 'Meera Nair',
+          fullName: 'Meera Nair',
+          passCategoryLabel: 'AUDIENCE PASS',
+          categoriesDisplay: 'Watch Only (No Stage Performance Rights)',
+          participantCount: 1,
+          checkedInAt: '2026-12-15T10:10:00.000Z',
+          checkedInByUserId: STAFF_A.id,
+          checkedInByName: 'Gate Staff A',
+          checkedInByEmail: STAFF_A.email,
+          scanMethod: 'qr',
+        },
+      ],
+      auditLogs: [
+        {
+          id: 'aud-p1',
+          action: 'CHECKED_IN',
+          ticketId: 'ALFTKT-P1',
+          registrationId: 'reg-p1',
+          registrationCode: 'ALF-P1',
+          registrationType: 'PARTICIPANT',
+          performedByEmail: STAFF_A.email,
+          performedByRole: 'staff',
+          originalCheckedInAt: '2026-12-15T10:00:00.000Z',
+          reason: 'QR camera check-in',
+          createdAt: '2026-12-15T10:00:00.000Z',
+        },
+        {
+          id: 'aud-a1',
+          action: 'CHECKED_IN',
+          ticketId: 'ALFTKT-A1',
+          registrationId: 'reg-a1',
+          registrationCode: 'ALF-A1',
+          registrationType: 'AUDIENCE',
+          performedByEmail: STAFF_A.email,
+          performedByRole: 'staff',
+          originalCheckedInAt: '2026-12-15T10:10:00.000Z',
+          reason: 'QR camera check-in',
+          createdAt: '2026-12-15T10:10:00.000Z',
+        },
+        {
+          id: 'aud-a2',
+          action: 'REVERSED',
+          ticketId: 'ALFTKT-A2',
+          registrationId: 'reg-a2',
+          registrationCode: 'ALF-A2',
+          registrationType: 'AUDIENCE',
+          performedByEmail: ADMIN_USER.email,
+          performedByRole: 'admin',
+          originalCheckedInAt: '2026-12-15T09:50:00.000Z',
+          reason: 'Wrong gate',
+          createdAt: '2026-12-15T09:55:00.000Z',
+        },
+      ],
+      ticketStatuses: [
+        {
+          registrationId: 'reg-p1',
+          registrationCode: 'ALF-P1',
+          registrationType: 'PARTICIPANT',
+          ticketId: 'ALFTKT-P1',
+          passCategoryLabel: 'INDIVIDUAL',
+          ticketStatus: 'checked_in',
+          isValidTicket: true,
+          checkedIn: true,
+          checkedInAt: '2026-12-15T10:00:00.000Z',
+          checkedInByName: 'Gate Staff A',
+          verifiedAt: '2026-12-12T10:00:00.000Z',
+        },
+        {
+          registrationId: 'reg-a1',
+          registrationCode: 'ALF-A1',
+          registrationType: 'AUDIENCE',
+          ticketId: 'ALFTKT-A1',
+          passCategoryLabel: 'AUDIENCE PASS',
+          ticketStatus: 'checked_in',
+          isValidTicket: true,
+          checkedIn: true,
+          checkedInAt: '2026-12-15T10:10:00.000Z',
+          checkedInByName: 'Gate Staff A',
+          verifiedAt: '2026-12-12T10:00:00.000Z',
+        },
+      ],
+    };
+
+    const participantScope = selectors.selectScopedCheckinReportData(mixedReport, 'PARTICIPANT');
+    assert.equal(participantScope.registrationType, 'PARTICIPANT');
+    assert.equal(participantScope.checkedInTickets.length, 2);
+    assert.ok(participantScope.checkedInTickets.every((t) => t.registrationType === 'PARTICIPANT'));
+    assert.equal(participantScope.auditLogs.length, 1);
+    assert.ok(participantScope.auditLogs.every((l) => l.registrationType === 'PARTICIPANT'));
+    assert.equal(participantScope.ticketStatuses.length, 1);
+    assert.ok(participantScope.ticketStatuses.every((t) => t.registrationType === 'PARTICIPANT'));
+    assert.equal(participantScope.stats.validTickets, 3);
+    assert.equal(participantScope.stats.checkedInCount, 2);
+    assert.equal(participantScope.stats.remainingCount, 1);
+    assert.equal(participantScope.stats.checkInRatePercent, 67);
+    assert.equal(participantScope.stats.qrScanCount, 1);
+    assert.equal(participantScope.stats.manualScanCount, 1);
+    assert.equal(participantScope.stats.reversalCount, 0);
+
+    const audienceScope = selectors.selectScopedCheckinReportData(mixedReport, 'AUDIENCE');
+    assert.equal(audienceScope.registrationType, 'AUDIENCE');
+    assert.equal(audienceScope.checkedInTickets.length, 1);
+    assert.ok(audienceScope.checkedInTickets.every((t) => t.registrationType === 'AUDIENCE'));
+    assert.equal(audienceScope.auditLogs.length, 2);
+    assert.ok(audienceScope.auditLogs.every((l) => l.registrationType === 'AUDIENCE'));
+    assert.equal(audienceScope.ticketStatuses.length, 1);
+    assert.ok(audienceScope.ticketStatuses.every((t) => t.registrationType === 'AUDIENCE'));
+    assert.equal(audienceScope.stats.validTickets, 2);
+    assert.equal(audienceScope.stats.checkedInCount, 1);
+    assert.equal(audienceScope.stats.remainingCount, 1);
+    assert.equal(audienceScope.stats.checkInRatePercent, 50);
+    assert.equal(audienceScope.stats.qrScanCount, 1);
+    assert.equal(audienceScope.stats.manualScanCount, 0);
+    assert.equal(audienceScope.stats.reversalCount, 1);
+  } finally {
+    rmSync(adminCheckinOut, { recursive: true, force: true });
   }
 });
 

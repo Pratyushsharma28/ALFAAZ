@@ -4,6 +4,10 @@ import {
   AdminScopedSectionData,
 } from '../types/admin';
 import { RegistrationType } from '../types/registration';
+import type {
+  AdminCheckInReportPayload,
+  AdminScopedCheckinWorkspaceData,
+} from '../types/staff';
 
 /**
  * Strictly partitions registrations and payment submissions by persistent
@@ -83,6 +87,83 @@ export function selectScopedSectionData(
         registrationType === 'PARTICIPANT'
           ? registrations.filter((r) => r.entryType === 'group').length
           : 0,
+    },
+  };
+}
+
+/**
+ * Strictly partitions admin gate check-in records, audit logs, ticket statuses,
+ * and attendance metrics by server-side `registration_type` ('PARTICIPANT' vs 'AUDIENCE').
+ */
+export function selectScopedCheckinReportData(
+  report: AdminCheckInReportPayload | null,
+  registrationType: RegistrationType
+): AdminScopedCheckinWorkspaceData {
+  const checkedInTickets = (report?.checkedInTickets ?? []).filter(
+    (item) => item.registrationType === registrationType
+  );
+  const auditLogs = (report?.auditLogs ?? []).filter(
+    (item) => item.registrationType === registrationType
+  );
+  const ticketStatuses = (report?.ticketStatuses ?? []).filter(
+    (item) => item.registrationType === registrationType
+  );
+
+  const serverStats = report?.stats;
+  const validTickets = serverStats
+    ? registrationType === 'AUDIENCE'
+      ? serverStats.audienceValidTickets
+      : serverStats.participantValidTickets
+    : ticketStatuses.filter((item) => item.isValidTicket).length;
+
+  const checkedInCount = serverStats
+    ? registrationType === 'AUDIENCE'
+      ? serverStats.audienceCheckedInCount
+      : serverStats.participantCheckedInCount
+    : checkedInTickets.length;
+
+  const remainingCount = serverStats
+    ? registrationType === 'AUDIENCE'
+      ? serverStats.audienceRemainingCount ?? Math.max(0, validTickets - checkedInCount)
+      : serverStats.participantRemainingCount ?? Math.max(0, validTickets - checkedInCount)
+    : Math.max(0, validTickets - checkedInCount);
+
+  const checkInRatePercent = serverStats
+    ? registrationType === 'AUDIENCE'
+      ? serverStats.audienceCheckInRatePercent ??
+        (validTickets > 0 ? Math.round((checkedInCount / validTickets) * 100) : 0)
+      : serverStats.participantCheckInRatePercent ??
+        (validTickets > 0 ? Math.round((checkedInCount / validTickets) * 100) : 0)
+    : validTickets > 0
+      ? Math.round((checkedInCount / validTickets) * 100)
+      : 0;
+
+  let qrScanCount = 0;
+  let manualScanCount = 0;
+  for (const item of checkedInTickets) {
+    if (item.scanMethod === 'manual') {
+      manualScanCount += 1;
+    } else {
+      qrScanCount += 1;
+    }
+  }
+
+  const reversalCount = auditLogs.filter((log) => log.action === 'REVERSED').length;
+
+  return {
+    registrationType,
+    checkedInTickets,
+    auditLogs,
+    ticketStatuses,
+    stats: {
+      registrationType,
+      validTickets,
+      checkedInCount,
+      remainingCount,
+      checkInRatePercent,
+      qrScanCount,
+      manualScanCount,
+      reversalCount,
     },
   };
 }

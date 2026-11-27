@@ -37,8 +37,12 @@ export interface CheckInSummaryStats {
   checkInRatePercent: number;
   participantValidTickets: number;
   participantCheckedInCount: number;
+  participantRemainingCount: number;
+  participantCheckInRatePercent: number;
   audienceValidTickets: number;
   audienceCheckedInCount: number;
+  audienceRemainingCount: number;
+  audienceCheckInRatePercent: number;
 }
 
 export interface SafeRecentCheckInItem {
@@ -666,7 +670,7 @@ export async function getStaffGateSummary(staff: VerifiedStaffActor): Promise<{
   let audienceCheckedInCount = 0;
 
   const mappedRows: SafeRecentCheckInItem[] = checkinRows.map((row) => {
-    const ticketId = pickString(row, ['ticket_id']);
+    const ticketId = pickString(row, ['ticket_id']).toUpperCase();
     const regId = pickString(row, ['registration_id']);
     const reg = regByTicketId.get(ticketId) ?? regById.get(regId);
     const registrationType = reg?.registrationType ?? resolveRegistrationType(row);
@@ -693,6 +697,19 @@ export async function getStaffGateSummary(staff: VerifiedStaffActor): Promise<{
   const remainingCount = Math.max(0, totalValidTickets - checkedInCount);
   const checkInRatePercent =
     totalValidTickets > 0 ? Math.round((checkedInCount / totalValidTickets) * 100) : 0;
+  const participantRemainingCount = Math.max(
+    0,
+    participantValidTickets - participantCheckedInCount
+  );
+  const participantCheckInRatePercent =
+    participantValidTickets > 0
+      ? Math.round((participantCheckedInCount / participantValidTickets) * 100)
+      : 0;
+  const audienceRemainingCount = Math.max(0, audienceValidTickets - audienceCheckedInCount);
+  const audienceCheckInRatePercent =
+    audienceValidTickets > 0
+      ? Math.round((audienceCheckedInCount / audienceValidTickets) * 100)
+      : 0;
 
   return {
     staff,
@@ -703,8 +720,12 @@ export async function getStaffGateSummary(staff: VerifiedStaffActor): Promise<{
       checkInRatePercent,
       participantValidTickets,
       participantCheckedInCount,
+      participantRemainingCount,
+      participantCheckInRatePercent,
       audienceValidTickets,
       audienceCheckedInCount,
+      audienceRemainingCount,
+      audienceCheckInRatePercent,
     },
     recentCheckins: mappedRows.slice(0, 15),
   };
@@ -934,7 +955,7 @@ export async function getAdminCheckinReport(options?: {
       .from('ticket_checkin_audit_logs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(100),
+      .limit(250),
   ]);
 
   assertStaffTablesReady(checkinsRes.error, 'ticket_checkins');
@@ -980,7 +1001,7 @@ export async function getAdminCheckinReport(options?: {
   let audienceCheckedInCount = 0;
 
   const allCheckedInTickets: AdminCheckInRecordItem[] = checkinRows.map((row) => {
-    const ticketId = pickString(row, ['ticket_id']);
+    const ticketId = pickString(row, ['ticket_id']).toUpperCase();
     const registrationId = pickString(row, ['registration_id']);
     const reg = regByTicketId.get(ticketId) ?? regById.get(registrationId);
     const registrationType = reg?.registrationType ?? resolveRegistrationType(row);
@@ -1054,10 +1075,23 @@ export async function getAdminCheckinReport(options?: {
   const remainingCount = Math.max(0, totalValidTickets - checkedInCount);
   const checkInRatePercent =
     totalValidTickets > 0 ? Math.round((checkedInCount / totalValidTickets) * 100) : 0;
+  const participantRemainingCount = Math.max(
+    0,
+    participantValidTickets - participantCheckedInCount
+  );
+  const participantCheckInRatePercent =
+    participantValidTickets > 0
+      ? Math.round((participantCheckedInCount / participantValidTickets) * 100)
+      : 0;
+  const audienceRemainingCount = Math.max(0, audienceValidTickets - audienceCheckedInCount);
+  const audienceCheckInRatePercent =
+    audienceValidTickets > 0
+      ? Math.round((audienceCheckedInCount / audienceValidTickets) * 100)
+      : 0;
 
   const auditRows = (auditRes.data as Record<string, unknown>[] | null) ?? [];
   const allAuditLogs: AdminCheckInAuditLogItem[] = auditRows.map((row) => {
-    const ticketId = pickString(row, ['ticket_id']);
+    const ticketId = pickString(row, ['ticket_id']).toUpperCase();
     const regId = pickString(row, ['registration_id']);
     const reg = regByTicketId.get(ticketId) ?? regById.get(regId);
     return {
@@ -1065,7 +1099,7 @@ export async function getAdminCheckinReport(options?: {
       action: pickString(row, ['action']) === 'REVERSED' ? 'REVERSED' : 'CHECKED_IN',
       ticketId,
       registrationId: regId,
-      registrationCode: pickString(row, ['registration_code']),
+      registrationCode: reg?.registrationCode || pickString(row, ['registration_code']),
       registrationType: reg?.registrationType ?? resolveRegistrationType(row),
       performedByEmail: pickString(row, ['performed_by_email']),
       performedByRole: pickString(row, ['performed_by_role']) === 'admin' ? 'admin' : 'staff',
@@ -1094,8 +1128,12 @@ export async function getAdminCheckinReport(options?: {
       checkInRatePercent,
       participantValidTickets,
       participantCheckedInCount,
+      participantRemainingCount,
+      participantCheckInRatePercent,
       audienceValidTickets,
       audienceCheckedInCount,
+      audienceRemainingCount,
+      audienceCheckInRatePercent,
     },
     checkedInTickets,
     auditLogs,

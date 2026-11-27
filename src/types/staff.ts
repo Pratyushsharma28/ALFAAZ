@@ -16,8 +16,12 @@ export interface CheckInSummaryStats {
   checkInRatePercent: number;
   participantValidTickets: number;
   participantCheckedInCount: number;
+  participantRemainingCount: number;
+  participantCheckInRatePercent: number;
   audienceValidTickets: number;
   audienceCheckedInCount: number;
+  audienceRemainingCount: number;
+  audienceCheckInRatePercent: number;
 }
 
 export interface SafeCheckInTicketInfo {
@@ -124,5 +128,24 @@ export interface AdminCheckInReportPayload {
   checkedInTickets: AdminCheckInRecordItem[];
   auditLogs: AdminCheckInAuditLogItem[];
   ticketStatuses?: AdminRegistrationTicketStatus[];
+}
+
+export interface AdminScopedCheckinWorkspaceStats {
+  registrationType: RegistrationType;
+  validTickets: number;
+  checkedInCount: number;
+  remainingCount: number;
+  checkInRatePercent: number;
+  qrScanCount: number;
+  manualScanCount: number;
+  reversalCount: number;
+}
+
+export interface AdminScopedCheckinWorkspaceData {
+  registrationType: RegistrationType;
+  checkedInTickets: AdminCheckInRecordItem[];
+  auditLogs: AdminCheckInAuditLogItem[];
+  ticketStatuses: AdminRegistrationTicketStatus[];
+  stats: AdminScopedCheckinWorkspaceStats;
 }
 

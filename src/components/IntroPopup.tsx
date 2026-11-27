@@ -1,27 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowRight, X } from 'lucide-react';
-import { EDITORIAL_EASE, useIsCompactOrTouch } from './MotionPrimitives';
+import { EDITORIAL_EASE } from './MotionPrimitives';
 
 export const DEFAULT_POSTER_SRC =
-  '/assets/aistudio/WhatsApp_Image_2026-11-26_at_22.31.51_c0257602.jpeg';
+  '/assets/aistudio/WhatsApp_Image_2026-11-27_at_17.46.32_332ca6ed.jpeg';
 export const DEFAULT_STORAGE_KEY = 'alfaaz_intro_poster_seen';
 
-const CINEMATIC_EASE = EDITORIAL_EASE;
+const ENTRANCE_EASE = EDITORIAL_EASE;
 const EXIT_EASE = [0.4, 0, 0.2, 1] as const;
-const POETRY_WORDS = ['WORDS', 'SOUL', 'FEEL', 'EXPRESS'] as const;
-const EQUALIZER_BARS = [0.42, 0.85, 0.58, 1, 0.66, 0.9, 0.48];
 
 export interface IntroPopupProps {
-  /** Path to the exact uploaded poster asset */
+  /** Path to the exact uploaded event poster asset */
   posterSrc?: string;
-  /** Accessible description of the poster */
+  /** Accessible description of the event poster */
   posterAlt?: string;
-  /** sessionStorage key used to show the popup once per tab session */
+  /** sessionStorage key used to auto-show the popup once per browser session */
   storageKey?: string;
-  /** Optional controlled open state (e.g., when re-opening manually) */
+  /** Optional controlled open state (e.g., when triggered from Hero/Footer) */
   isOpen?: boolean;
-  /** Called when the popup closes */
+  /** Called when the popup requests to close */
   onClose?: () => void;
 }
 
@@ -37,13 +35,13 @@ function markIntroSeenInSession(storageKey: string): void {
   try {
     window.sessionStorage.setItem(storageKey, 'true');
   } catch {
-    // Ignore storage errors in restricted browsing contexts
+    // Ignore storage errors in restricted browsing modes
   }
 }
 
 export function IntroPopup({
   posterSrc = DEFAULT_POSTER_SRC,
-  posterAlt = 'ALFAAZ — UNFILTERED official event poster: 18 Dec, 4 to 9 PM at Quad AI Bengaluru. Dance, Sing, Poetry. Hosted by Social & Cultural Team.',
+  posterAlt = 'ALFAAZ — UNFILTERED Inter-College Cultural Event official poster. 18 Dec 2026, 4:00 PM to 9:00 PM at Quad AI, 27th Main HSR, Bangalore. Categories: Dance, Singing, Poetry. Prizes: ₹5,000, ₹3,000, ₹2,000. Early Bird Entry: ₹99 Solo, ₹149 Couple, ₹199 Group. Certificate, Goodies and Cash Prize.',
   storageKey = DEFAULT_STORAGE_KEY,
   isOpen,
   onClose,
@@ -53,31 +51,16 @@ export function IntroPopup({
     if (typeof window === 'undefined') return false;
     return !hasSeenIntroInSession(storageKey);
   });
-
   const [imageError, setImageError] = useState(false);
-  const [isEnteringSweep, setIsEnteringSweep] = useState(false);
-  const [isButtonHovered, setIsButtonHovered] = useState(false);
-
-  // Interactive artistic elements state
-  const [singActive, setSingActive] = useState(false);
-  const [poetryHovered, setPoetryHovered] = useState(false);
-  const [poetryIndex, setPoetryIndex] = useState(0);
-  const [danceActive, setDanceActive] = useState(false);
 
   const shouldReduceMotion = useReducedMotion();
-  const isCompactOrTouch = useIsCompactOrTouch();
+  const modalCardRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  const sweepTimeoutRef = useRef<number | null>(null);
 
   const visible = isControlled ? isOpen : internalOpen;
 
-  const finalizeClose = useCallback(() => {
-    if (sweepTimeoutRef.current) {
-      window.clearTimeout(sweepTimeoutRef.current);
-      sweepTimeoutRef.current = null;
-    }
-    setIsEnteringSweep(false);
+  const handleClose = useCallback(() => {
     markIntroSeenInSession(storageKey);
     if (!isControlled) {
       setInternalOpen(false);
@@ -85,40 +68,15 @@ export function IntroPopup({
     onClose?.();
   }, [isControlled, onClose, storageKey]);
 
-  const handleEnterExperience = useCallback(() => {
-    if (isEnteringSweep) return;
-    if (shouldReduceMotion) {
-      finalizeClose();
-      return;
-    }
-    setIsEnteringSweep(true);
-    sweepTimeoutRef.current = window.setTimeout(() => {
-      finalizeClose();
-    }, 380);
-  }, [finalizeClose, isEnteringSweep, shouldReduceMotion]);
-
-  // Reset sweep state cleanly when reopened
+  // Mark session as seen as soon as the popup opens so reloads in the same session do not repeat it
   useEffect(() => {
     if (visible) {
-      setIsEnteringSweep(false);
+      markIntroSeenInSession(storageKey);
+      setImageError(false);
     }
-    return () => {
-      if (sweepTimeoutRef.current) {
-        window.clearTimeout(sweepTimeoutRef.current);
-      }
-    };
-  }, [visible]);
+  }, [visible, storageKey]);
 
-  // Subtle restrained poetry word cycle while popup is open
-  useEffect(() => {
-    if (!visible || shouldReduceMotion) return;
-    const interval = window.setInterval(() => {
-      setPoetryIndex((prev) => (prev + 1) % POETRY_WORDS.length);
-    }, 2800);
-    return () => window.clearInterval(interval);
-  }, [visible, shouldReduceMotion]);
-
-  // Prevent background scrolling while popup is open
+  // Prevent background page scroll while modal is open
   useEffect(() => {
     if (!visible) return;
 
@@ -134,7 +92,7 @@ export function IntroPopup({
     };
   }, [visible]);
 
-  // Keyboard Escape support and accessible focus management
+  // Accessible focus management and Escape key dismissal
   useEffect(() => {
     if (!visible) return;
 
@@ -142,12 +100,12 @@ export function IntroPopup({
 
     const focusTimer = window.setTimeout(() => {
       closeButtonRef.current?.focus();
-    }, 60);
+    }, 50);
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        finalizeClose();
+        handleClose();
       }
     };
 
@@ -158,519 +116,217 @@ export function IntroPopup({
       window.removeEventListener('keydown', onKeyDown);
       previousFocusRef.current?.focus?.();
     };
-  }, [visible, finalizeClose]);
+  }, [visible, handleClose]);
 
-  const currentWord = POETRY_WORDS[poetryIndex];
+  // Trap keyboard Tab focus inside the active modal dialog
+  const handleModalKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab' || !modalCardRef.current) return;
+
+    const focusable = Array.from(
+      modalCardRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   return (
     <AnimatePresence mode="wait">
       {visible && (
         <motion.div
-          key="alfaaz-intro-overlay"
+          key="alfaaz-poster-modal-backdrop"
           role="dialog"
           aria-modal="true"
-          aria-label="ALFAAZ — UNFILTERED introductory event poster"
+          aria-label="ALFAAZ — UNFILTERED official event poster"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          exit={{
+            opacity: 0,
+            transition: shouldReduceMotion
+              ? { duration: 0.01 }
+              : { duration: 0.28, ease: EXIT_EASE },
+          }}
           transition={
             shouldReduceMotion
               ? { duration: 0.01 }
-              : {
-                  duration: 0.46,
-                  ease: CINEMATIC_EASE,
-                }
+              : { duration: 0.36, ease: ENTRANCE_EASE }
           }
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              finalizeClose();
+              handleClose();
             }
           }}
-          className="fixed inset-0 z-50 flex h-[100dvh] w-screen items-center justify-center overflow-y-auto overflow-x-hidden bg-[#050505]/94 px-3.5 py-4 md:backdrop-blur-sm sm:p-6 md:p-8"
+          style={{
+            paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+            paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+            paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+            paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+          }}
+          className="fixed inset-0 z-50 flex h-[100dvh] w-screen items-center justify-center overflow-x-hidden overflow-y-auto bg-[#050505]/86 backdrop-blur-md sm:p-6"
         >
-          {/* Layer 1: Gradual Crimson-Obsidian Atmospheric Lighting Reveal */}
+          {/* Ambient radial stage vignette on backdrop */}
           <motion.div
             aria-hidden="true"
-            initial={
-              shouldReduceMotion
-                ? { opacity: 0.9 }
-                : { opacity: 0, scale: 0.92 }
-            }
-            animate={
-              shouldReduceMotion
-                ? { opacity: 0.9 }
-                : { opacity: isEnteringSweep ? 1 : 0.95, scale: 1 }
-            }
+            initial={shouldReduceMotion ? { opacity: 0.85 } : { opacity: 0 }}
+            animate={{ opacity: 0.9 }}
             exit={{ opacity: 0 }}
             transition={
               shouldReduceMotion
                 ? { duration: 0.01 }
-                : { duration: 0.95, ease: CINEMATIC_EASE }
+                : { duration: 0.55, ease: ENTRANCE_EASE }
             }
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none fixed inset-0"
             style={{
               background:
-                'radial-gradient(circle at 50% 42%, rgba(164, 16, 52, 0.28) 0%, rgba(255, 23, 68, 0.11) 28%, rgba(12, 12, 14, 0.72) 58%, rgba(5, 5, 5, 0.98) 84%)',
+                'radial-gradient(circle at 50% 48%, rgba(255, 23, 68, 0.14) 0%, rgba(200, 243, 107, 0.05) 34%, rgba(5, 5, 5, 0.96) 76%)',
             }}
           />
 
-          {/* Layer 2: Subtle 35mm grain texture matching the main editorial canvas */}
-          <div
-            aria-hidden="true"
-            className="grain-overlay grain-animated pointer-events-none absolute -inset-6 opacity-[0.04]"
-          />
-
-          {/* Layer 3: Refined crimson light sweep when ENTER THE EXPERIENCE is clicked */}
-          <AnimatePresence>
-            {isEnteringSweep && !shouldReduceMotion && (
-              <motion.div
-                aria-hidden="true"
-                initial={{ x: '-115%', opacity: 0.15 }}
-                animate={{ x: '115%', opacity: 0.9 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.42, ease: CINEMATIC_EASE }}
-                className="pointer-events-none fixed inset-y-0 left-0 z-30 w-[70vw]"
-                style={{
-                  background:
-                    'linear-gradient(105deg, transparent 0%, rgba(164, 16, 52, 0.22) 34%, rgba(255, 23, 68, 0.54) 50%, rgba(234, 231, 224, 0.14) 54%, transparent 100%)',
-                }}
-              />
-            )}
-          </AnimatePresence>
-
-          {/* Main Framed Editorial Reveal Container */}
+          {/* Centered Modal Wrapper (hosts GPU-friendly delayed neon pink + lime perimeter glow) */}
           <motion.div
+            ref={modalCardRef}
+            onKeyDown={handleModalKeyDown}
+            onClick={(e) => e.stopPropagation()}
             initial={
               shouldReduceMotion
                 ? { opacity: 0 }
-                : { opacity: 0, y: 20, scale: 0.94 }
+                : { opacity: 0, scale: 0.94, y: 18 }
             }
-            animate={
-              shouldReduceMotion
-                ? { opacity: 1 }
-                : isEnteringSweep
-                  ? { opacity: 0.85, y: 0, scale: 0.985 }
-                  : { opacity: 1, y: 0, scale: 1 }
-            }
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={
               shouldReduceMotion
                 ? { opacity: 0 }
                 : {
                     opacity: 0,
-                    y: 12,
                     scale: 0.95,
-                    transition: { duration: 0.34, ease: EXIT_EASE },
+                    y: 12,
+                    transition: { duration: 0.26, ease: EXIT_EASE },
                   }
             }
             transition={
               shouldReduceMotion
                 ? { duration: 0.01 }
-                : { duration: 0.58, ease: CINEMATIC_EASE }
+                : { duration: 0.48, ease: ENTRANCE_EASE }
             }
-            onClick={(e) => e.stopPropagation()}
-            className="underground-surface relative z-10 my-auto flex w-full max-w-[600px] flex-col overflow-hidden border border-[#EAE7E0]/16 bg-gradient-to-b from-[#0C0C0E]/96 via-[#08080A]/98 to-[#050505] shadow-[0_36px_100px_rgba(0,0,0,0.96),0_0_56px_rgba(164,16,52,0.22)] ring-1 ring-inset ring-[#FF1744]/12"
+            className="relative z-10 my-auto flex w-auto max-w-[calc(100vw-1.5rem)] flex-col will-change-transform sm:max-w-[min(90vw,560px)]"
           >
-            {/* Top Crimson Lighting Reveal Hairline */}
+            {/* Subtle neon pink & lime glow that animates gently AFTER the popup settles */}
             <motion.div
               aria-hidden="true"
-              initial={shouldReduceMotion ? { scaleX: 1 } : { scaleX: 0, opacity: 0.4 }}
-              animate={{ scaleX: 1, opacity: 1 }}
+              initial={shouldReduceMotion ? { opacity: 0.45 } : { opacity: 0, scale: 0.97 }}
+              animate={
+                shouldReduceMotion
+                  ? { opacity: 0.45 }
+                  : { opacity: [0, 0.72, 0.56], scale: 1 }
+              }
+              exit={{
+                opacity: 0,
+                transition: shouldReduceMotion ? { duration: 0.01 } : { duration: 0.2 },
+              }}
               transition={
                 shouldReduceMotion
                   ? { duration: 0.01 }
-                  : { duration: 0.72, delay: 0.06, ease: CINEMATIC_EASE }
+                  : { duration: 1.1, delay: 0.34, ease: ENTRANCE_EASE }
               }
-              className="h-[2px] w-full origin-center bg-gradient-to-r from-[#A41034]/20 via-[#FF1744] to-[#A41034]/20 shadow-[0_0_12px_rgba(255,23,68,0.55)]"
+              className="pointer-events-none absolute -inset-3 -z-10 rounded-[24px] will-change-[transform,opacity]"
+              style={{
+                background:
+                  'radial-gradient(circle at 22% 18%, rgba(255, 23, 68, 0.38), transparent 56%), radial-gradient(circle at 80% 82%, rgba(200, 243, 107, 0.28), transparent 58%), radial-gradient(circle at 82% 20%, rgba(0, 229, 255, 0.16), transparent 50%)',
+                filter: 'blur(22px)',
+              }}
             />
 
-            {/* Stagger 1: Modal Editorial Header Bar with Minimal Accessible Close Button */}
-            <motion.div
-              initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={
-                shouldReduceMotion
-                  ? { duration: 0.01 }
-                  : { duration: 0.42, delay: 0.1, ease: CINEMATIC_EASE }
-              }
-              className="flex items-center justify-between gap-3 border-b border-[#EAE7E0]/12 bg-[#070709]/92 px-4 py-2.5 sm:px-5 sm:py-3"
-            >
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span
-                  aria-hidden="true"
-                  className="h-2 w-2 shrink-0 rounded-full bg-[#FF1744] shadow-[0_0_8px_rgba(255,23,68,0.85)]"
-                />
-                <p className="truncate font-mono-num text-[10px] font-medium tracking-[0.2em] text-[#EAE7E0]/85 uppercase sm:text-[11px]">
-                  ALFAAZ — UNFILTERED
-                  <span className="hidden text-[#EAE7E0]/45 sm:inline"> · </span>
-                  <span className="hidden text-[#C8F36B] sm:inline">18 DEC 2026</span>
-                </p>
-              </div>
-
-              <motion.button
-                ref={closeButtonRef}
-                type="button"
-                onClick={finalizeClose}
-                aria-label="Close introductory poster"
-                whileHover={
-                  shouldReduceMotion ? undefined : { y: -1, scale: 1.03 }
-                }
-                whileTap={shouldReduceMotion ? undefined : { scale: 0.94 }}
-                transition={{ duration: 0.18, ease: CINEMATIC_EASE }}
-                className="group inline-flex h-9 min-h-[36px] shrink-0 cursor-pointer items-center gap-1.5 border border-[#EAE7E0]/18 bg-[#050505] px-2.5 font-mono-num text-[10px] font-semibold tracking-[0.18em] text-[#EAE7E0]/85 uppercase transition-all duration-200 hover:border-[#FF1744]/85 hover:bg-[#FF1744] hover:text-[#EAE7E0] hover:shadow-[0_0_18px_rgba(255,23,68,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744] sm:h-10 sm:min-h-[40px] sm:px-3"
-              >
-                <span className="hidden sm:inline">Close</span>
-                <X
-                  className="h-4 w-4 transition-transform duration-200 group-hover:rotate-90"
-                  aria-hidden="true"
-                />
-              </motion.button>
-            </motion.div>
-
-            {/* Stagger 2: Center Stage Chamber — Poster Harmonized Within Dark Crimson Frame */}
-            <div className="relative flex flex-col items-center justify-center bg-[#060608]/85 px-4 pt-4 pb-3.5 sm:px-6 sm:pt-5 sm:pb-4">
-              {/* Soft gradual crimson rim-light behind the poster */}
-              <motion.div
+            {/* Main Cinematic Modal Frame */}
+            <div className="relative flex flex-col overflow-hidden rounded-2xl border border-[#EAE7E0]/16 bg-[#070709] shadow-[0_28px_80px_rgba(0,0,0,0.92),0_0_32px_rgba(255,23,68,0.16),0_0_24px_rgba(200,243,107,0.1)]">
+              {/* Top Neon Accent Hairline */}
+              <div
                 aria-hidden="true"
-                initial={shouldReduceMotion ? { opacity: 0.7 } : { opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 0.78, scale: 1 }}
-                transition={
-                  shouldReduceMotion
-                    ? { duration: 0.01 }
-                    : { duration: 0.9, delay: 0.16, ease: CINEMATIC_EASE }
-                }
-                className="pointer-events-none absolute inset-x-10 top-6 bottom-6 hidden rounded-full blur-3xl md:block"
-                style={{
-                  background:
-                    'radial-gradient(circle at 50% 48%, rgba(255, 23, 68, 0.22) 0%, rgba(164, 16, 52, 0.14) 48%, transparent 75%)',
-                }}
+                className="h-[2px] w-full shrink-0 bg-gradient-to-r from-[#FF1744] via-[#C8F36B] to-[#00E5FF]"
               />
 
-              <motion.div
-                initial={
-                  shouldReduceMotion
-                    ? { opacity: 1 }
-                    : { opacity: 0, y: 10, scale: 0.97 }
-                }
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={
-                  shouldReduceMotion
-                    ? { duration: 0.01 }
-                    : { duration: 0.54, delay: 0.16, ease: CINEMATIC_EASE }
-                }
-                className="relative flex items-center justify-center"
-              >
-                <motion.div
-                  animate={
-                    shouldReduceMotion || isEnteringSweep || isCompactOrTouch
-                      ? { y: 0 }
-                      : { y: [0, -3, 0] }
-                  }
-                  whileHover={
-                    shouldReduceMotion || isEnteringSweep || isCompactOrTouch
-                      ? undefined
-                      : { scale: 1.012 }
-                  }
-                  transition={
-                    shouldReduceMotion || isEnteringSweep || isCompactOrTouch
-                      ? { duration: 0.25, ease: CINEMATIC_EASE }
-                      : {
-                          y: {
-                            duration: 6.5,
-                            repeat: Infinity,
-                            ease: 'easeInOut',
-                            delay: 0.7,
-                          },
-                          scale: { duration: 0.35, ease: CINEMATIC_EASE },
-                        }
-                  }
-                  className="relative flex items-center justify-center"
+              {/* Compact Header Bar with High-Contrast Accessible Close Button */}
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#EAE7E0]/10 bg-[#0A0A0D]/95 px-3.5 py-2.5 sm:px-4 sm:py-3">
+                <div className="min-w-0">
+                  <p className="truncate font-mono-num text-[11px] font-medium tracking-[0.16em] text-[#EAE7E0]/90 uppercase">
+                    ALFAAZ — UNFILTERED
+                    <span className="text-[#EAE7E0]/40"> · </span>
+                    <span className="text-[#C8F36B]">18 DEC 2026</span>
+                  </p>
+                </div>
+
+                <button
+                  ref={closeButtonRef}
+                  type="button"
+                  onClick={handleClose}
+                  aria-label="Close event poster popup"
+                  className="group inline-flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[#EAE7E0]/20 bg-[#050505] px-2.5 font-mono-num text-[11px] font-semibold tracking-wider text-[#EAE7E0] uppercase transition-colors duration-150 hover:border-[#FF1744] hover:bg-[#FF1744] hover:text-[#EAE7E0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8F36B] sm:min-h-[40px] sm:min-w-[40px] sm:px-3"
                 >
-                  {/* Restrained Uniform Editorial Corner Hairlines */}
-                  <span
+                  <span className="hidden sm:inline">Close</span>
+                  <X
+                    className="h-4 w-4 transition-transform duration-200 group-hover:rotate-90"
                     aria-hidden="true"
-                    className="pointer-events-none absolute -top-2 -left-2 h-3.5 w-3.5 border-t border-l border-[#FF1744]/65"
                   />
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -top-2 -right-2 h-3.5 w-3.5 border-t border-r border-[#EAE7E0]/35"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -bottom-2 -left-2 h-3.5 w-3.5 border-b border-l border-[#EAE7E0]/35"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -bottom-2 -right-2 h-3.5 w-3.5 border-b border-r border-[#FF1744]/65"
-                  />
-
-                  {!imageError ? (
-                    <div className="relative overflow-hidden border border-[#EAE7E0]/16 bg-[#050505] shadow-[0_24px_64px_rgba(0,0,0,0.94),0_0_32px_rgba(164,16,52,0.2)]">
-                      <img
-                        src={posterSrc}
-                        alt={posterAlt}
-                        referrerPolicy="no-referrer"
-                        onError={() => setImageError(true)}
-                        className="relative block h-auto w-auto max-h-[44dvh] max-w-[82vw] object-contain select-none sm:max-h-[48dvh] sm:max-w-[460px] md:max-h-[52dvh] md:max-w-[480px]"
-                      />
-                      {/* Subtle perimeter edge shadow only — keeps artwork crisp, legible, and unaltered */}
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 shadow-[inset_0_0_24px_rgba(5,5,5,0.45)] ring-1 ring-inset ring-white/10"
-                      />
-                    </div>
-                  ) : (
-                    <div className="relative flex aspect-[4/5] w-[min(78vw,340px)] flex-col items-center justify-center border border-[#EAE7E0]/20 bg-[#050505] p-8 text-center text-[#EAE7E0]">
-                      <p className="font-display text-4xl font-black tracking-tight uppercase">
-                        ALFAAZ — UNFILTERED
-                      </p>
-                      <p className="mt-2 text-sm text-[#EAE7E0]/75">
-                        18 Dec 2026 · Quad AI, Bengaluru
-                      </p>
-                    </div>
-                  )}
-                </motion.div>
-              </motion.div>
-            </div>
-
-            {/* Stagger 3: Interactive Artistic Trio: SING · POETRY · DANCE */}
-            <motion.div
-              initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={
-                shouldReduceMotion
-                  ? { duration: 0.01 }
-                  : { duration: 0.45, delay: 0.25, ease: CINEMATIC_EASE }
-              }
-              aria-label="Interactive artistic discipline previews"
-              className="grid w-full grid-cols-3 divide-x divide-[#EAE7E0]/12 border-t border-b border-[#EAE7E0]/12 bg-[#070709]/95"
-            >
-              {/* 1. SING: Minimal Soundwave / Equalizer */}
-              <button
-                type="button"
-                onMouseEnter={() => setSingActive(true)}
-                onMouseLeave={() => setSingActive(false)}
-                onFocus={() => setSingActive(true)}
-                onBlur={() => setSingActive(false)}
-                onClick={() => setSingActive((prev) => !prev)}
-                aria-label="Singing discipline soundwave preview"
-                className="group flex cursor-pointer flex-col items-center justify-center gap-1.5 px-2 py-2.5 transition-colors duration-200 hover:bg-[#FF1744]/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FF1744] sm:py-3"
-              >
-                <div className="flex h-5 items-end justify-center gap-[3px]" aria-hidden="true">
-                  {EQUALIZER_BARS.map((peak, index) => (
-                    <motion.span
-                      key={index}
-                      className={`w-[2px] origin-bottom transition-all duration-200 ${
-                        singActive
-                          ? 'bg-[#C8F36B] shadow-[0_0_8px_rgba(200,243,107,0.65)]'
-                          : 'bg-[#FF1744] shadow-[0_0_6px_rgba(255,23,68,0.5)]'
-                      }`}
-                      style={{ height: '18px' }}
-                      animate={
-                        shouldReduceMotion
-                          ? { scaleY: peak * 0.7 }
-                          : {
-                              scaleY: singActive
-                                ? [peak * 0.45, Math.min(1, peak * 1.1), peak * 0.35]
-                                : [peak * 0.3, peak * 0.8, peak * 0.35],
-                            }
-                      }
-                      transition={
-                        shouldReduceMotion
-                          ? { duration: 0 }
-                          : {
-                              duration: singActive ? 0.65 + index * 0.08 : 1.3 + index * 0.14,
-                              repeat: Infinity,
-                              ease: 'easeInOut',
-                            }
-                      }
-                    />
-                  ))}
-                </div>
-                <span className="font-mono-num text-[10px] tracking-[0.22em] text-[#EAE7E0]/80 uppercase transition-colors group-hover:text-[#EAE7E0]">
-                  Sing
-                </span>
-              </button>
-
-              {/* 2. POETRY: Floating / Restrained Word Reveal */}
-              <button
-                type="button"
-                onMouseEnter={() => {
-                  setPoetryHovered(true);
-                  setPoetryIndex((prev) => (prev + 1) % POETRY_WORDS.length);
-                }}
-                onMouseLeave={() => setPoetryHovered(false)}
-                onFocus={() => setPoetryHovered(true)}
-                onBlur={() => setPoetryHovered(false)}
-                onClick={() => setPoetryIndex((prev) => (prev + 1) % POETRY_WORDS.length)}
-                aria-label={`Poetry discipline word reveal: ${currentWord}`}
-                className="group flex cursor-pointer flex-col items-center justify-center gap-1.5 px-2 py-2.5 transition-colors duration-200 hover:bg-[#D500F9]/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D500F9] sm:py-3"
-              >
-                <div className="flex h-5 items-center justify-center overflow-hidden">
-                  <AnimatePresence mode="wait">
-                    <motion.span
-                      key={currentWord}
-                      initial={
-                        shouldReduceMotion
-                          ? { opacity: 1 }
-                          : { opacity: 0, y: 6, letterSpacing: '0.32em' }
-                      }
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        letterSpacing: poetryHovered ? '0.28em' : '0.2em',
-                      }}
-                      exit={
-                        shouldReduceMotion
-                          ? { opacity: 0 }
-                          : { opacity: 0, y: -6 }
-                      }
-                      transition={
-                        shouldReduceMotion
-                          ? { duration: 0.01 }
-                          : { duration: 0.32, ease: CINEMATIC_EASE }
-                      }
-                      className={`font-mono-num text-[11px] font-medium uppercase transition-colors ${
-                        poetryHovered ? 'text-[#D500F9] neon-text-purple' : 'text-[#EAE7E0]'
-                      }`}
-                    >
-                      {currentWord}
-                    </motion.span>
-                  </AnimatePresence>
-                </div>
-                <span className="font-mono-num text-[10px] tracking-[0.22em] text-[#EAE7E0]/80 uppercase transition-colors group-hover:text-[#EAE7E0]">
-                  Poetry
-                </span>
-              </button>
-
-              {/* 3. DANCE: Abstract Motion Trails / Kinetic Visual */}
-              <button
-                type="button"
-                onMouseEnter={() => setDanceActive(true)}
-                onMouseLeave={() => setDanceActive(false)}
-                onFocus={() => setDanceActive(true)}
-                onBlur={() => setDanceActive(false)}
-                onClick={() => setDanceActive((prev) => !prev)}
-                aria-label="Dance discipline kinetic motion preview"
-                className="group flex cursor-pointer flex-col items-center justify-center gap-1.5 px-2 py-2.5 transition-colors duration-200 hover:bg-[#00E5FF]/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#00E5FF] sm:py-3"
-              >
-                <div className="relative flex h-5 w-16 items-center justify-center" aria-hidden="true">
-                  <svg
-                    viewBox="0 0 64 20"
-                    className="h-5 w-16 overflow-visible"
-                    fill="none"
-                  >
-                    <motion.path
-                      d="M4 13 C 16 2, 26 18, 38 7 C 46 0, 54 14, 60 6"
-                      stroke={danceActive ? '#C8F36B' : '#00E5FF'}
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      animate={
-                        shouldReduceMotion
-                          ? undefined
-                          : {
-                              d: danceActive
-                                ? [
-                                    'M4 13 C 16 2, 26 18, 38 7 C 46 0, 54 14, 60 6',
-                                    'M4 7 C 16 18, 28 2, 38 13 C 48 18, 54 3, 60 12',
-                                    'M4 13 C 16 2, 26 18, 38 7 C 46 0, 54 14, 60 6',
-                                  ]
-                                : [
-                                    'M4 11 C 18 5, 28 15, 40 9 C 48 5, 54 12, 60 8',
-                                    'M4 9 C 18 14, 28 6, 40 11 C 48 15, 54 7, 60 10',
-                                    'M4 11 C 18 5, 28 15, 40 9 C 48 5, 54 12, 60 8',
-                                  ],
-                            }
-                      }
-                      transition={
-                        shouldReduceMotion
-                          ? undefined
-                          : {
-                              duration: danceActive ? 1.1 : 2.8,
-                              repeat: Infinity,
-                              ease: 'easeInOut',
-                            }
-                      }
-                    />
-                    <motion.circle
-                      r={danceActive ? 2.2 : 1.7}
-                      fill="#EAE7E0"
-                      animate={
-                        shouldReduceMotion
-                          ? { cx: 32, cy: 10 }
-                          : {
-                              cx: danceActive ? [6, 32, 58, 32, 6] : [10, 32, 54, 32, 10],
-                              cy: danceActive ? [12, 5, 9, 14, 12] : [10, 8, 10, 12, 10],
-                            }
-                      }
-                      transition={
-                        shouldReduceMotion
-                          ? undefined
-                          : {
-                              duration: danceActive ? 1.5 : 3.4,
-                              repeat: Infinity,
-                              ease: 'easeInOut',
-                            }
-                      }
-                    />
-                  </svg>
-                </div>
-                <span className="font-mono-num text-[10px] tracking-[0.22em] text-[#EAE7E0]/80 uppercase transition-colors group-hover:text-[#EAE7E0]">
-                  Dance
-                </span>
-              </button>
-            </motion.div>
-
-            {/* Stagger 4: Modal Footer Action Bar */}
-            <motion.div
-              initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={
-                shouldReduceMotion
-                  ? { duration: 0.01 }
-                  : { duration: 0.45, delay: 0.32, ease: CINEMATIC_EASE }
-              }
-              className="flex flex-col items-center justify-between gap-3 bg-[#050505] px-4 py-3.5 sm:flex-row sm:px-5 sm:py-4"
-            >
-              <div className="hidden text-left sm:block">
-                <p className="font-mono-num text-[10px] font-medium tracking-[0.2em] text-[#C8F36B] uppercase">
-                  Quad AI, Bengaluru
-                </p>
-                <p className="mt-0.5 text-xs text-[#EAE7E0]/75">
-                  4:00 PM – 9:00 PM IST · No Rules. Just Raw Talent.
-                </p>
+                </button>
               </div>
 
-              <motion.button
-                type="button"
-                disabled={isEnteringSweep}
-                onClick={handleEnterExperience}
-                onMouseEnter={() => setIsButtonHovered(true)}
-                onMouseLeave={() => setIsButtonHovered(false)}
-                whileHover={
-                  shouldReduceMotion
-                    ? undefined
-                    : { y: -2, scale: 1.015 }
-                }
-                whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
-                transition={{ duration: 0.2, ease: CINEMATIC_EASE }}
-                aria-label="Enter the ALFAAZ — UNFILTERED experience"
-                className="neon-cta-breathe group relative inline-flex min-h-[46px] w-full shrink-0 cursor-pointer items-center justify-center gap-3 border border-[#FF1744] bg-[#FF1744] px-6 py-2.5 font-display text-lg font-extrabold tracking-[0.16em] text-[#EAE7E0] uppercase transition-all duration-200 hover:bg-[#ff2b54] hover:shadow-[0_10px_28px_rgba(255,23,68,0.48)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EAE7E0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505] disabled:pointer-events-none whitespace-nowrap sm:w-auto sm:px-7 sm:text-xl"
-              >
-                <span>ENTER THE EXPERIENCE</span>
-                <motion.span
-                  aria-hidden="true"
-                  animate={
-                    shouldReduceMotion
-                      ? undefined
-                      : { x: isButtonHovered ? 4 : 0 }
-                  }
-                  transition={{ duration: 0.2, ease: CINEMATIC_EASE }}
-                  className="inline-flex items-center text-[#EAE7E0]"
+              {/* Unaltered Event Poster Stage (object-fit: contain keeps 100% of artwork & bottom event details visible) */}
+              <div className="flex min-h-0 flex-1 items-center justify-center bg-[#050505] p-2.5 sm:p-3.5">
+                {!imageError ? (
+                  <img
+                    src={posterSrc}
+                    alt={posterAlt}
+                    width={1086}
+                    height={1448}
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    onError={() => setImageError(true)}
+                    className="block h-auto w-auto max-h-[calc(100dvh-10.25rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] max-w-full rounded-xl object-contain select-none sm:max-h-[min(74dvh,700px)]"
+                  />
+                ) : (
+                  <div className="flex aspect-[3/4] w-[min(76vw,340px)] flex-col items-center justify-center rounded-xl border border-[#EAE7E0]/15 bg-[#08080A] p-6 text-center text-[#EAE7E0]">
+                    <p className="font-display text-3xl font-black tracking-tight uppercase">
+                      ALFAAZ — UNFILTERED
+                    </p>
+                    <p className="mt-2 font-mono-num text-xs text-[#C8F36B] uppercase">
+                      18 Dec 2026 · 4:00 PM – 9:00 PM
+                    </p>
+                    <p className="mt-1 text-xs text-[#EAE7E0]/75">
+                      Quad AI, 27th Main HSR, Bangalore
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Clean Footer Strip */}
+              <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[#EAE7E0]/10 bg-[#0A0A0D]/95 px-3.5 py-2.5 sm:px-4 sm:py-3">
+                <p className="min-w-0 truncate text-xs text-[#EAE7E0]/70">
+                  Quad AI, HSR Bangalore
+                  <span className="text-[#EAE7E0]/35"> · </span>
+                  <span className="text-[#00E5FF]">Dance · Singing · Poetry</span>
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="inline-flex min-h-[40px] shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-[#C8F36B]/60 bg-[#C8F36B]/12 px-4 py-2 font-mono-num text-[11px] font-bold tracking-wider whitespace-nowrap text-[#C8F36B] uppercase transition-colors duration-150 hover:bg-[#C8F36B] hover:text-[#050505] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
                 >
-                  <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
-                </motion.span>
-              </motion.button>
-            </motion.div>
+                  <span>Enter Site</span>
+                  <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
           </motion.div>
         </motion.div>
       )}
