@@ -13,21 +13,18 @@ import {
  * ============================================================================
  * BACKEND INTEGRATION CONFIGURATION
  * ============================================================================
- * Set VITE_API_BASE_URL in your environment (e.g. https://api.yourdomain.com)
- * to connect the ALFAAZ registration flow to your backend API.
+ * Defaults to same-origin `/api/*` serverless routes (deployed with the app
+ * on Vercel). Optionally set `VITE_API_BASE_URL` if hosting the API separately.
  *
  * SECURITY BOUNDARY:
- * - Razorpay Key Secret MUST remain exclusively on the backend.
- * - Order creation, amount calculation, and Razorpay signature verification
- *   MUST happen server-side.
- * - Never trust client-side payment callbacks without backend verification.
+ * - Supabase service_role key & payment secrets MUST remain exclusively on the server.
+ * - Amount calculation and payment status updates MUST happen server-side.
+ * - Never auto-verify manual UPI payments on client submission.
  */
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '');
 
 /**
- * TODO (Backend Integration):
- * Update these endpoint paths to match your backend router if needed.
- * They are intentionally centralized here so no form component hardcodes URLs.
+ * Centralized API endpoint paths used by the registration & payment modal.
  */
 export const REGISTRATION_API_ENDPOINTS = {
   submitRegistration: '/api/registrations',
@@ -54,17 +51,11 @@ export class RegistrationApiError extends Error {
 }
 
 export function isBackendConfigured(): boolean {
-  return API_BASE_URL.length > 0;
+  return true;
 }
 
 function buildUrl(path: string): string {
-  if (!isBackendConfigured()) {
-    throw new RegistrationApiError(
-      'Backend API URL is not configured yet. Set VITE_API_BASE_URL to connect your registration and Razorpay backend.',
-      'BACKEND_NOT_CONFIGURED'
-    );
-  }
-  return `${API_BASE_URL}${path}`;
+  return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
 }
 
 async function postJson<TResponse>(path: string, body: unknown): Promise<TResponse> {
