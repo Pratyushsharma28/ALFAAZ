@@ -18,10 +18,16 @@ import { EntryPassTierId, ParticipationCategory } from './types/registration';
 const AdminPortal = lazy(() => import('./components/admin/AdminPortal'));
 const ParticipantPortal = lazy(() => import('./components/participant/ParticipantPortal'));
 const TicketVerificationPage = lazy(() => import('./components/participant/TicketVerificationPage'));
+const StaffCheckinPortal = lazy(() => import('./components/staff/StaffCheckinPortal'));
 
 function isAdminPath(pathname: string): boolean {
   const normalized = pathname.replace(/\/+$/, '') || '/';
   return normalized === '/admin' || normalized.startsWith('/admin/');
+}
+
+function isStaffCheckinPath(pathname: string): boolean {
+  const normalized = pathname.replace(/\/+$/, '') || '/';
+  return normalized === '/staff-checkin' || normalized.startsWith('/staff-checkin/');
 }
 
 function isVerifyTicketPath(pathname: string): boolean {
@@ -98,6 +104,24 @@ export default function App() {
           }
         >
           <AdminPortal />
+        </Suspense>
+      </MotionConfig>
+    );
+  }
+
+  if (isStaffCheckinPath(pathname)) {
+    return (
+      <MotionConfig reducedMotion="user">
+        <Suspense
+          fallback={
+            <div className="underground-surface flex min-h-screen items-center justify-center bg-[#050505] text-[#EAE7E0]">
+              <p className="font-mono-num text-xs tracking-widest text-[#EAE7E0]/75 uppercase">
+                Loading Staff Check-In...
+              </p>
+            </div>
+          }
+        >
+          <StaffCheckinPortal />
         </Suspense>
       </MotionConfig>
     );

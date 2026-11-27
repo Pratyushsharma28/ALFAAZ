@@ -11,6 +11,10 @@ import participantRegistrationsHandler from './api/participant/registrations.js'
 import participantResubmitHandler from './api/participant/resubmit-proof.js';
 import participantTicketHandler from './api/participant/ticket.js';
 import ticketVerifyHandler from './api/tickets/verify.js';
+import staffSessionHandler from './api/staff/session.js';
+import staffCheckinHandler from './api/staff/checkin.js';
+import adminStaffHandler from './api/admin/staff.js';
+import adminCheckinsHandler from './api/admin/checkins.js';
 
 const PORT = Number(process.env.PORT || 3000);
 const isProduction = process.env.NODE_ENV === 'production';
@@ -49,6 +53,22 @@ async function startServer() {
 
   app.all('/api/tickets/verify', (req, res) => {
     void ticketVerifyHandler(req, res);
+  });
+
+  app.all('/api/staff/session', (req, res) => {
+    void staffSessionHandler(req, res);
+  });
+
+  app.all('/api/staff/checkin', (req, res) => {
+    void staffCheckinHandler(req, res);
+  });
+
+  app.all('/api/admin/staff', (req, res) => {
+    void adminStaffHandler(req, res);
+  });
+
+  app.all('/api/admin/checkins', (req, res) => {
+    void adminCheckinsHandler(req, res);
   });
 
   if (!isProduction) {

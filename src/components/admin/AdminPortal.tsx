@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  QrCode,
   RefreshCw,
   ShieldCheck,
   Users,
@@ -41,8 +42,9 @@ import { AdminPaymentVerificationView } from './AdminPaymentVerificationView';
 import { AdminProofViewerModal } from './AdminProofViewerModal';
 import { AdminRegistrationDetailDrawer } from './AdminRegistrationDetailDrawer';
 import { AdminRegistrationsView } from './AdminRegistrationsView';
+import { AdminCheckinsAndStaffView } from './AdminCheckinsAndStaffView';
 
-type AdminTab = 'overview' | 'registrations' | 'verification';
+type AdminTab = 'overview' | 'registrations' | 'verification' | 'checkin';
 
 type AuthGateState =
   | { status: 'checking' }
@@ -366,6 +368,11 @@ export default function AdminPortal() {
       icon: ShieldCheck,
       badge: stats?.pendingCount,
     },
+    {
+      id: 'checkin',
+      label: 'Staff & Check-Ins',
+      icon: QrCode,
+    },
   ];
 
   const handleExportAll = () => {
@@ -475,7 +482,9 @@ export default function AdminPortal() {
                   ? 'Organizer Overview'
                   : activeTab === 'registrations'
                     ? 'Registrations Ledger'
-                    : 'Payment Verification'}
+                    : activeTab === 'verification'
+                      ? 'Payment Verification'
+                      : 'Staff & Check-Ins'}
               </h1>
             </div>
           </div>
@@ -633,6 +642,8 @@ export default function AdminPortal() {
               onInspectSubmission={(sub) => setReviewingSubmission(sub)}
             />
           )}
+
+          {activeTab === 'checkin' && <AdminCheckinsAndStaffView />}
         </main>
       </div>
 
