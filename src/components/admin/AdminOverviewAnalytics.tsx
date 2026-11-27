@@ -7,6 +7,7 @@ import {
   Clock,
   FileSearch,
   IndianRupee,
+  QrCode,
   Radio,
   TrendingUp,
   XCircle,
@@ -19,6 +20,7 @@ import {
   RealtimeConnectionStatus,
 } from '../../types/admin';
 import { EntryPassTierId, RegistrationType } from '../../types/registration';
+import type { CheckInSummaryStats } from '../../types/staff';
 import {
   ENTRY_TYPE_META,
   formatDateTime,
@@ -29,10 +31,14 @@ import {
 
 interface AdminOverviewAnalyticsProps {
   payload: AdminDashboardPayload | null;
+  checkinStats?: CheckInSummaryStats | null;
   isLoading: boolean;
   errorMessage: string | null;
   realtimeStatus: RealtimeConnectionStatus;
   onRetry: () => void;
+  onOpenParticipantsSection: () => void;
+  onOpenAudienceSection: () => void;
+  onOpenCheckins: () => void;
   onOpenRegistrations: (
     presetEntryType?: 'all' | EntryPassTierId,
     presetRegType?: 'all' | RegistrationType
@@ -44,10 +50,14 @@ interface AdminOverviewAnalyticsProps {
 
 export function AdminOverviewAnalytics({
   payload,
+  checkinStats,
   isLoading,
   errorMessage,
   realtimeStatus,
   onRetry,
+  onOpenParticipantsSection,
+  onOpenAudienceSection,
+  onOpenCheckins,
   onOpenRegistrations,
   onOpenVerification,
   onSelectRegistration,
@@ -192,11 +202,11 @@ export function AdminOverviewAnalytics({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <ClickableKpiCard
             label="Total Registrations"
             value={String(stats.totalRegistrations)}
-            subtext="Open registrations ledger"
+            subtext="Combined Participants + Audience"
             accent="text-[#EAE7E0]"
             hoverBorder="hover:border-[#EAE7E0]/45"
             icon={<ClipboardList className="h-4 w-4 text-[#EAE7E0]/60" aria-hidden="true" />}
@@ -206,7 +216,7 @@ export function AdminOverviewAnalytics({
           <ClickableKpiCard
             label="Verified Payments"
             value={String(stats.verifiedCount)}
-            subtext="Open verified payment records"
+            subtext="Combined verified approvals"
             accent="text-[#C8F36B]"
             hoverBorder="hover:border-[#C8F36B]/55"
             icon={<CheckCircle2 className="h-4 w-4 text-[#C8F36B]" aria-hidden="true" />}
@@ -216,7 +226,7 @@ export function AdminOverviewAnalytics({
           <ClickableKpiCard
             label="Pending Payments"
             value={String(stats.pendingCount)}
-            subtext="Open pending verification queue"
+            subtext="Open combined review queue"
             accent="text-[#F59E0B]"
             hoverBorder="hover:border-[#F59E0B]/55"
             icon={<Clock className="h-4 w-4 text-[#F59E0B]" aria-hidden="true" />}
@@ -244,57 +254,117 @@ export function AdminOverviewAnalytics({
             icon={<IndianRupee className="h-4 w-4 text-[#C8F36B]" aria-hidden="true" />}
             onClick={() => onOpenVerification('verified')}
           />
+
+          <ClickableKpiCard
+            label="Total Check-Ins"
+            value={String(checkinStats?.checkedInCount ?? 0)}
+            subtext={
+              checkinStats
+                ? `${checkinStats.participantCheckedInCount} participants · ${checkinStats.audienceCheckedInCount} audience`
+                : 'Open gate attendance report'
+            }
+            accent="text-[#00E5FF]"
+            hoverBorder="hover:border-[#00E5FF]/55"
+            icon={<QrCode className="h-4 w-4 text-[#00E5FF]" aria-hidden="true" />}
+            onClick={onOpenCheckins}
+          />
         </div>
 
-        {/* Separated Participant vs Audience Split Cards */}
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+        {/* Separated Participant vs Audience Analytics */}
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
           <button
             type="button"
-            onClick={() => onOpenRegistrations('all', 'PARTICIPANT')}
-            className="group flex cursor-pointer items-center justify-between gap-4 border border-[#FF1744]/30 bg-[#0B0B0D] px-5 py-4 text-left transition-colors hover:border-[#FF1744] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
+            onClick={onOpenParticipantsSection}
+            className="group cursor-pointer border border-[#FF1744]/35 bg-[#0B0B0D] p-5 text-left transition-colors hover:border-[#FF1744] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1744]"
           >
-            <div>
+            <div className="flex items-center justify-between gap-2">
               <p className="font-mono-num text-[11px] font-bold tracking-[0.18em] text-[#FF1744] uppercase">
-                Participant Registrations (Performers)
+                Participants Analytics (Performers · ₹99 / ₹149 / ₹199)
               </p>
-              <p className="mt-1 text-xs text-[#EAE7E0]/75">
-                <span className="font-mono-num text-[#C8F36B]">{stats.participantVerifiedCount}</span> verified ·{' '}
-                <span className="font-mono-num text-[#F59E0B]">{stats.participantPendingCount}</span> pending · Revenue{' '}
-                <span className="font-mono-num font-bold text-[#EAE7E0]">
-                  {formatInr(stats.participantVerifiedAmountInr)}
-                </span>
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono-num text-2xl font-bold text-[#EAE7E0]">
-                {stats.participantCount}
-              </span>
               <ArrowUpRight className="h-4 w-4 text-[#EAE7E0]/45 group-hover:text-[#FF1744]" aria-hidden="true" />
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2.5 border-y border-[#EAE7E0]/10 py-3">
+              <div>
+                <p className="text-[11px] text-[#EAE7E0]/55">Total Participants</p>
+                <p className="mt-0.5 font-mono-num text-2xl font-bold text-[#EAE7E0]">
+                  {stats.participantCount}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#C8F36B]">Verified Participants</p>
+                <p className="mt-0.5 font-mono-num text-2xl font-bold text-[#C8F36B]">
+                  {stats.participantVerifiedCount}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#F59E0B]">Pending Payments</p>
+                <p className="mt-0.5 font-mono-num text-2xl font-bold text-[#F59E0B]">
+                  {stats.participantPendingCount}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#EAE7E0]/70">
+              <span>
+                Revenue:{' '}
+                <strong className="font-mono-num text-[#EAE7E0]">
+                  {formatInr(stats.participantVerifiedAmountInr)}
+                </strong>
+              </span>
+              {checkinStats && (
+                <span className="font-mono-num text-[11px] text-[#EAE7E0]/75">
+                  Checked In: {checkinStats.participantCheckedInCount} / {checkinStats.participantValidTickets}
+                </span>
+              )}
             </div>
           </button>
 
           <button
             type="button"
-            onClick={() => onOpenRegistrations('all', 'AUDIENCE')}
-            className="group flex cursor-pointer items-center justify-between gap-4 border border-[#00E5FF]/35 bg-[#0B0B0D] px-5 py-4 text-left transition-colors hover:border-[#00E5FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
+            onClick={onOpenAudienceSection}
+            className="group cursor-pointer border border-[#00E5FF]/35 bg-[#0B0B0D] p-5 text-left transition-colors hover:border-[#00E5FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
           >
-            <div>
+            <div className="flex items-center justify-between gap-2">
               <p className="font-mono-num text-[11px] font-bold tracking-[0.18em] text-[#00E5FF] uppercase">
-                Audience Registrations (₹59 Watch Only)
+                Audience Analytics (Watch Only · ₹59)
               </p>
-              <p className="mt-1 text-xs text-[#EAE7E0]/75">
-                <span className="font-mono-num text-[#C8F36B]">{stats.audienceVerifiedCount}</span> verified ·{' '}
-                <span className="font-mono-num text-[#F59E0B]">{stats.audiencePendingCount}</span> pending · Revenue{' '}
-                <span className="font-mono-num font-bold text-[#EAE7E0]">
-                  {formatInr(stats.audienceVerifiedAmountInr)}
-                </span>
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono-num text-2xl font-bold text-[#EAE7E0]">
-                {stats.audienceCount}
-              </span>
               <ArrowUpRight className="h-4 w-4 text-[#EAE7E0]/45 group-hover:text-[#00E5FF]" aria-hidden="true" />
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2.5 border-y border-[#EAE7E0]/10 py-3">
+              <div>
+                <p className="text-[11px] text-[#EAE7E0]/55">Total Audience</p>
+                <p className="mt-0.5 font-mono-num text-2xl font-bold text-[#EAE7E0]">
+                  {stats.audienceCount}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#C8F36B]">Verified Audience</p>
+                <p className="mt-0.5 font-mono-num text-2xl font-bold text-[#C8F36B]">
+                  {stats.audienceVerifiedCount}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#F59E0B]">Pending Payments</p>
+                <p className="mt-0.5 font-mono-num text-2xl font-bold text-[#F59E0B]">
+                  {stats.audiencePendingCount}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#EAE7E0]/70">
+              <span>
+                Revenue:{' '}
+                <strong className="font-mono-num text-[#EAE7E0]">
+                  {formatInr(stats.audienceVerifiedAmountInr)}
+                </strong>
+              </span>
+              {checkinStats && (
+                <span className="font-mono-num text-[11px] text-[#EAE7E0]/75">
+                  Checked In: {checkinStats.audienceCheckedInCount} / {checkinStats.audienceValidTickets}
+                </span>
+              )}
             </div>
           </button>
         </div>

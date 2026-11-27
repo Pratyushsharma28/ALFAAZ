@@ -7,9 +7,11 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Mic2,
   QrCode,
   RefreshCw,
   ShieldCheck,
+  Ticket,
   Users,
   X,
 } from 'lucide-react';
@@ -19,9 +21,11 @@ import {
   exportRegistrationsCsv,
   fetchAdminDashboardData,
   getCurrentVerifiedAdmin,
+  selectScopedSectionData,
   signInAdminWithPassword,
   signOutAdminSession,
 } from '../../services/adminApi';
+import { fetchAdminCheckinReport } from '../../services/staffApi';
 import {
   AdminDashboardPayload,
   AdminPaymentSubmissionRecord,
@@ -31,6 +35,10 @@ import {
   RealtimeConnectionStatus,
 } from '../../types/admin';
 import { EntryPassTierId, RegistrationType } from '../../types/registration';
+import type {
+  AdminCheckInReportPayload,
+  AdminRegistrationTicketStatus,
+} from '../../types/staff';
 import { EDITORIAL_EASE } from '../MotionPrimitives';
 import {
   AdminAccessDeniedScreen,
@@ -43,8 +51,15 @@ import { AdminProofViewerModal } from './AdminProofViewerModal';
 import { AdminRegistrationDetailDrawer } from './AdminRegistrationDetailDrawer';
 import { AdminRegistrationsView } from './AdminRegistrationsView';
 import { AdminCheckinsAndStaffView } from './AdminCheckinsAndStaffView';
+import { AdminSegmentedWorkspace } from './AdminSegmentedWorkspace';
 
-type AdminTab = 'overview' | 'registrations' | 'verification' | 'checkin';
+type AdminTab =
+  | 'overview'
+  | 'participants'
+  | 'audience'
+  | 'registrations'
+  | 'verification'
+  | 'checkin';
 
 type AuthGateState =
   | { status: 'checking' }
@@ -67,6 +82,7 @@ export default function AdminPortal() {
   >('all');
 
   const [dashboardData, setDashboardData] = useState<AdminDashboardPayload | null>(null);
+  const [checkinReport, setCheckinReport] = useState<AdminCheckInReportPayload | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const [bannerMessage, setBannerMessage] = useState<string | null>(null);
@@ -158,8 +174,14 @@ export default function AdminPortal() {
     }
     setDataError(null);
     try {
-      const payload = await fetchAdminDashboardData();
+      const [payload, checkinPayload] = await Promise.all([
+        fetchAdminDashboardData(),
+        fetchAdminCheckinReport().catch(() => null),
+      ]);
       setDashboardData(payload);
+      if (checkinPayload) {
+        setCheckinReport(checkinPayload);
+      }
     } catch (err) {
       if (err instanceof AdminApiError && err.code === 'ACCESS_DENIED') {
         await signOutAdminSession().catch(() => undefined);
@@ -286,6 +308,49 @@ export default function AdminPortal() {
     return map;
   }, [dashboardData?.submissions]);
 
+  const ticketStatusByRegId = useMemo(() => {
+    const map = new Map<string, AdminRegistrationTicketStatus>();
+    for (const item of checkinReport?.ticketStatuses ?? []) {
+      if (item.registrationId && !map.has(item.registrationId)) {
+        map.set(item.registrationId, item);
+      }
+      if (item.registrationCode && !map.has(item.registrationCode)) {
+        map.set(item.registrationCode, item);
+      }
+    }
+    return map;
+  }, [checkinReport?.ticketStatuses]);
+
+  const participantSectionData = useMemo(
+    () => selectScopedSectionData(dashboardData, 'PARTICIPANT'),
+    [dashboardData]
+  );
+
+  const audienceSectionData = useMemo(
+    () => selectScopedSectionData(dashboardData, 'AUDIENCE'),
+    [dashboardData]
+  );
+
+  const participantTicketStatusMap = useMemo(() => {
+    const map = new Map<string, AdminRegistrationTicketStatus>();
+    for (const item of checkinReport?.ticketStatuses ?? []) {
+      if (item.registrationType !== 'PARTICIPANT') continue;
+      if (item.registrationId) map.set(item.registrationId, item);
+      if (item.registrationCode) map.set(item.registrationCode, item);
+    }
+    return map;
+  }, [checkinReport?.ticketStatuses]);
+
+  const audienceTicketStatusMap = useMemo(() => {
+    const map = new Map<string, AdminRegistrationTicketStatus>();
+    for (const item of checkinReport?.ticketStatuses ?? []) {
+      if (item.registrationType !== 'AUDIENCE') continue;
+      if (item.registrationId) map.set(item.registrationId, item);
+      if (item.registrationCode) map.set(item.registrationCode, item);
+    }
+    return map;
+  }, [checkinReport?.ticketStatuses]);
+
   const handleOpenRegistrations = (
     presetEntryType: 'all' | EntryPassTierId = 'all',
     presetRegType: 'all' | RegistrationType = 'all'
@@ -359,8 +424,23 @@ export default function AdminPortal() {
     label: string;
     icon: typeof LayoutDashboard;
     badge?: number;
+    accentColor?: 'red' | 'cyan';
   }[] = [
     { id: 'overview', label: 'Overview & Stats', icon: LayoutDashboard },
+    {
+      id: 'participants',
+      label: 'Participants',
+      icon: Mic2,
+      badge: stats?.participantCount,
+      accentColor: 'red',
+    },
+    {
+      id: 'audience',
+      label: 'Audience',
+      icon: Ticket,
+      badge: stats?.audienceCount,
+      accentColor: 'cyan',
+    },
     {
       id: 'registrations',
       label: 'Registrations',
@@ -381,6 +461,16 @@ export default function AdminPortal() {
   ];
 
   const handleExportAll = () => {
+    if (activeTab === 'participants') {
+      if (participantSectionData.registrations.length === 0) return;
+      exportRegistrationsCsv(participantSectionData.registrations, 'alfaaz-participants');
+      return;
+    }
+    if (activeTab === 'audience') {
+      if (audienceSectionData.registrations.length === 0) return;
+      exportRegistrationsCsv(audienceSectionData.registrations, 'alfaaz-audience');
+      return;
+    }
     const records = dashboardData?.registrations ?? [];
     if (records.length === 0) return;
     exportRegistrationsCsv(records, 'alfaaz-all-registrations');
@@ -404,6 +494,7 @@ export default function AdminPortal() {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
+              const isCyan = item.accentColor === 'cyan';
               return (
                 <button
                   key={item.id}
@@ -411,13 +502,21 @@ export default function AdminPortal() {
                   onClick={() => setActiveTab(item.id)}
                   className={`flex min-h-[42px] w-full cursor-pointer items-center justify-between gap-2 border px-3.5 py-2 text-left text-xs font-semibold transition-colors ${
                     isActive
-                      ? 'border-[#FF1744]/50 bg-[#FF1744]/15 text-[#EAE7E0]'
+                      ? isCyan
+                        ? 'border-[#00E5FF]/50 bg-[#00E5FF]/15 text-[#EAE7E0]'
+                        : 'border-[#FF1744]/50 bg-[#FF1744]/15 text-[#EAE7E0]'
                       : 'border-transparent text-[#EAE7E0]/70 hover:bg-[#EAE7E0]/[0.04] hover:text-[#EAE7E0]'
                   }`}
                 >
                   <span className="flex items-center gap-2.5 whitespace-nowrap">
                     <Icon
-                      className={`h-4 w-4 ${isActive ? 'text-[#FF1744]' : 'text-[#EAE7E0]/55'}`}
+                      className={`h-4 w-4 ${
+                        isActive
+                          ? isCyan
+                            ? 'text-[#00E5FF]'
+                            : 'text-[#FF1744]'
+                          : 'text-[#EAE7E0]/55'
+                      }`}
                       aria-hidden="true"
                     />
                     <span>{item.label}</span>
@@ -485,11 +584,15 @@ export default function AdminPortal() {
               <h1 className="font-display text-xl font-black tracking-tight text-[#EAE7E0] uppercase sm:text-2xl">
                 {activeTab === 'overview'
                   ? 'Organizer Overview'
-                  : activeTab === 'registrations'
-                    ? 'Registrations Ledger'
-                    : activeTab === 'verification'
-                      ? 'Payment Verification'
-                      : 'Staff & Check-Ins'}
+                  : activeTab === 'participants'
+                    ? 'Participants Management'
+                    : activeTab === 'audience'
+                      ? 'Audience Management'
+                      : activeTab === 'registrations'
+                        ? 'Registrations Ledger'
+                        : activeTab === 'verification'
+                          ? 'Payment Verification'
+                          : 'Staff & Check-Ins'}
               </h1>
             </div>
           </div>
@@ -510,7 +613,14 @@ export default function AdminPortal() {
 
             <button
               type="button"
-              disabled={!dashboardData || dashboardData.registrations.length === 0}
+              disabled={
+                !dashboardData ||
+                (activeTab === 'participants'
+                  ? participantSectionData.registrations.length === 0
+                  : activeTab === 'audience'
+                    ? audienceSectionData.registrations.length === 0
+                    : dashboardData.registrations.length === 0)
+              }
               onClick={handleExportAll}
               className="inline-flex min-h-[38px] cursor-pointer items-center gap-1.5 border border-[#C8F36B]/45 bg-[#C8F36B]/10 px-3 py-1.5 text-xs font-semibold text-[#C8F36B] transition-colors hover:bg-[#C8F36B] hover:text-[#050505] disabled:cursor-not-allowed disabled:opacity-45 whitespace-nowrap"
             >
@@ -536,6 +646,7 @@ export default function AdminPortal() {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
+                const isCyan = item.accentColor === 'cyan';
                 return (
                   <button
                     key={item.id}
@@ -546,12 +657,17 @@ export default function AdminPortal() {
                     }}
                     className={`flex min-h-[42px] w-full cursor-pointer items-center justify-between border px-3 py-2 text-xs font-semibold ${
                       isActive
-                        ? 'border-[#FF1744]/50 bg-[#FF1744]/15 text-[#EAE7E0]'
+                        ? isCyan
+                          ? 'border-[#00E5FF]/50 bg-[#00E5FF]/15 text-[#EAE7E0]'
+                          : 'border-[#FF1744]/50 bg-[#FF1744]/15 text-[#EAE7E0]'
                         : 'border-transparent text-[#EAE7E0]/75'
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      <Icon className="h-4 w-4 text-[#FF1744]" aria-hidden="true" />
+                      <Icon
+                        className={`h-4 w-4 ${isCyan ? 'text-[#00E5FF]' : 'text-[#FF1744]'}`}
+                        aria-hidden="true"
+                      />
                       <span>{item.label}</span>
                     </span>
                     {typeof item.badge === 'number' && (
@@ -609,16 +725,59 @@ export default function AdminPortal() {
             >
               <AdminOverviewAnalytics
                 payload={dashboardData}
+                checkinStats={checkinReport?.stats ?? null}
                 isLoading={isLoadingData}
                 errorMessage={dataError}
                 realtimeStatus={realtimeStatus}
                 onRetry={() => void loadDashboard()}
+                onOpenParticipantsSection={() => {
+                  setActiveTab('participants');
+                  setMobileNavOpen(false);
+                }}
+                onOpenAudienceSection={() => {
+                  setActiveTab('audience');
+                  setMobileNavOpen(false);
+                }}
+                onOpenCheckins={() => {
+                  setActiveTab('checkin');
+                  setMobileNavOpen(false);
+                }}
                 onOpenRegistrations={handleOpenRegistrations}
                 onOpenVerification={handleOpenVerification}
                 onSelectRegistration={(reg) => setSelectedRegistration(reg)}
                 onInspectSubmission={(sub) => setReviewingSubmission(sub)}
               />
             </motion.div>
+          )}
+
+          {activeTab === 'participants' && (
+            <AdminSegmentedWorkspace
+              sectionType="PARTICIPANT"
+              sectionData={participantSectionData}
+              ticketStatusByRegId={participantTicketStatusMap}
+              checkinStats={checkinReport?.stats ?? null}
+              isLoading={isLoadingData}
+              errorMessage={dataError}
+              onRetry={() => void loadDashboard()}
+              onSelectRegistration={(reg) => setSelectedRegistration(reg)}
+              onInspectSubmission={(sub) => setReviewingSubmission(sub)}
+              onExportCsv={(records, prefix) => exportRegistrationsCsv(records, prefix)}
+            />
+          )}
+
+          {activeTab === 'audience' && (
+            <AdminSegmentedWorkspace
+              sectionType="AUDIENCE"
+              sectionData={audienceSectionData}
+              ticketStatusByRegId={audienceTicketStatusMap}
+              checkinStats={checkinReport?.stats ?? null}
+              isLoading={isLoadingData}
+              errorMessage={dataError}
+              onRetry={() => void loadDashboard()}
+              onSelectRegistration={(reg) => setSelectedRegistration(reg)}
+              onInspectSubmission={(sub) => setReviewingSubmission(sub)}
+              onExportCsv={(records, prefix) => exportRegistrationsCsv(records, prefix)}
+            />
           )}
 
           {activeTab === 'registrations' && (
@@ -650,7 +809,11 @@ export default function AdminPortal() {
             />
           )}
 
-          {activeTab === 'checkin' && <AdminCheckinsAndStaffView />}
+          {activeTab === 'checkin' && (
+            <AdminCheckinsAndStaffView
+              onCheckinChanged={() => void loadDashboard({ silent: true })}
+            />
+          )}
         </main>
       </div>
 
@@ -661,6 +824,13 @@ export default function AdminPortal() {
           selectedRegistration
             ? submissionsByRegId.get(selectedRegistration.id) ??
               submissionsByRegId.get(selectedRegistration.registrationCode) ??
+              null
+            : null
+        }
+        ticketStatus={
+          selectedRegistration
+            ? ticketStatusByRegId.get(selectedRegistration.id) ??
+              ticketStatusByRegId.get(selectedRegistration.registrationCode) ??
               null
             : null
         }

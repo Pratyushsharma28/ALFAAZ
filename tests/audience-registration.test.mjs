@@ -995,3 +995,176 @@ test('6. Fails closed with 503 SCHEMA_NOT_READY if audience_registration_migrati
     await new Promise((resolve) => legacyServer.close(resolve));
   }
 });
+
+test('7. Admin checkins API filters checkedInTickets, auditLogs, and ticketStatuses strictly by registrationType', async () => {
+  // Invalid registrationType query param must fail closed with 400
+  const invalidFilterRes = await callApiOverHttp(handlers.adminCheckins, {
+    method: 'GET',
+    url: '/api/admin/checkins?registrationType=VIP_HACK',
+    headers: { authorization: 'Bearer token-admin' },
+  });
+  assert.equal(invalidFilterRes.status, 400);
+  assert.equal(invalidFilterRes.json.error, 'VALIDATION_ERROR');
+
+  // Unfiltered report includes ticketStatuses for both Participant and Audience
+  const allReport = await callApiOverHttp(handlers.adminCheckins, {
+    method: 'GET',
+    headers: { authorization: 'Bearer token-admin' },
+  });
+  assert.equal(allReport.status, 200);
+  assert.ok(Array.isArray(allReport.json.ticketStatuses));
+  assert.ok(allReport.json.ticketStatuses.some((t) => t.registrationType === 'PARTICIPANT'));
+  assert.ok(allReport.json.ticketStatuses.some((t) => t.registrationType === 'AUDIENCE'));
+
+  // Scoped PARTICIPANT filter returns zero AUDIENCE records
+  const participantReport = await callApiOverHttp(handlers.adminCheckins, {
+    method: 'GET',
+    url: '/api/admin/checkins?registrationType=PARTICIPANT',
+    headers: { authorization: 'Bearer token-admin' },
+  });
+  assert.equal(participantReport.status, 200);
+  assert.equal(participantReport.json.checkedInTickets.length, 1);
+  assert.ok(participantReport.json.checkedInTickets.every((t) => t.registrationType === 'PARTICIPANT'));
+  assert.ok(participantReport.json.auditLogs.every((l) => l.registrationType === 'PARTICIPANT'));
+  assert.ok(participantReport.json.ticketStatuses.every((t) => t.registrationType === 'PARTICIPANT'));
+  // Combined & split stats remain intact for dashboard summary counters
+  assert.equal(participantReport.json.stats.participantCheckedInCount, 1);
+  assert.equal(participantReport.json.stats.audienceCheckedInCount, 0);
+
+  // Scoped AUDIENCE filter returns zero PARTICIPANT records
+  const audienceReport = await callApiOverHttp(handlers.adminCheckins, {
+    method: 'GET',
+    url: '/api/admin/checkins?registrationType=AUDIENCE',
+    headers: { authorization: 'Bearer token-admin' },
+  });
+  assert.equal(audienceReport.status, 200);
+  assert.equal(audienceReport.json.checkedInTickets.length, 0);
+  assert.ok(audienceReport.json.auditLogs.length >= 2);
+  assert.ok(audienceReport.json.auditLogs.every((l) => l.registrationType === 'AUDIENCE'));
+  assert.ok(audienceReport.json.ticketStatuses.length >= 1);
+  assert.ok(audienceReport.json.ticketStatuses.every((t) => t.registrationType === 'AUDIENCE'));
+  const audTicketStatus = audienceReport.json.ticketStatuses.find(
+    (t) => t.registrationId === audienceRegId
+  );
+  assert.ok(audTicketStatus);
+  assert.equal(audTicketStatus.ticketStatus, 'issued');
+  assert.equal(audTicketStatus.passCategoryLabel, 'AUDIENCE PASS');
+});
+
+test('8. Admin scoped section selector strictly partitions PARTICIPANT vs AUDIENCE registrations and payments', async () => {
+  const adminApiOut = mkdtempSync(path.join(WORKSPACE_ROOT, '.tmp-admin-api-test-'));
+  try {
+    execFileSync(
+      'npx',
+      [
+        'esbuild',
+        path.join(WORKSPACE_ROOT, 'src/types/registration.ts'),
+        path.join(WORKSPACE_ROOT, 'src/services/adminSelectors.ts'),
+        '--bundle',
+        '--format=esm',
+        '--platform=node',
+        '--out-extension:.js=.mjs',
+        `--outdir=${adminApiOut}`,
+      ],
+      { cwd: WORKSPACE_ROOT, stdio: 'pipe' }
+    );
+
+    const regTypes = await import(pathToFileURL(path.join(adminApiOut, 'types/registration.mjs')).href);
+    const selectors = await import(pathToFileURL(path.join(adminApiOut, 'services/adminSelectors.mjs')).href);
+
+    assert.equal(regTypes.AUDIENCE_PASS_FEE_INR, 59);
+    assert.equal(regTypes.ENTRY_PASS_OPTIONS.individual.price, 99);
+    assert.equal(regTypes.ENTRY_PASS_OPTIONS.couple.price, 149);
+    assert.equal(regTypes.ENTRY_PASS_OPTIONS.group.price, 199);
+
+    const mockPayload = {
+      registrations: [
+        {
+          id: 'reg-p1',
+          registrationCode: 'ALF-P1',
+          registrationType: 'PARTICIPANT',
+          entryType: 'individual',
+          amountInr: 99,
+          paymentStatus: 'verified',
+        },
+        {
+          id: 'reg-p2',
+          registrationCode: 'ALF-P2',
+          registrationType: 'PARTICIPANT',
+          entryType: 'group',
+          amountInr: 199,
+          paymentStatus: 'pending',
+        },
+        {
+          id: 'reg-a1',
+          registrationCode: 'ALF-A1',
+          registrationType: 'AUDIENCE',
+          entryType: 'individual',
+          amountInr: 59,
+          paymentStatus: 'verified',
+        },
+        {
+          id: 'reg-a2',
+          registrationCode: 'ALF-A2',
+          registrationType: 'AUDIENCE',
+          entryType: 'individual',
+          amountInr: 59,
+          paymentStatus: 'pending',
+        },
+      ],
+      submissions: [
+        {
+          id: 'sub-p1',
+          registrationId: 'reg-p1',
+          registrationCode: 'ALF-P1',
+          registrationType: 'PARTICIPANT',
+          entryType: 'individual',
+          amountInr: 99,
+          status: 'verified',
+        },
+        {
+          id: 'sub-p2',
+          registrationId: 'reg-p2',
+          registrationCode: 'ALF-P2',
+          registrationType: 'PARTICIPANT',
+          entryType: 'group',
+          amountInr: 199,
+          status: 'pending',
+        },
+        {
+          id: 'sub-a1',
+          registrationId: 'reg-a1',
+          registrationCode: 'ALF-A1',
+          registrationType: 'AUDIENCE',
+          entryType: 'individual',
+          amountInr: 59,
+          status: 'verified',
+        },
+      ],
+    };
+
+    const participantSection = selectors.selectScopedSectionData(mockPayload, 'PARTICIPANT');
+    assert.equal(participantSection.registrations.length, 2);
+    assert.ok(participantSection.registrations.every((r) => r.registrationType === 'PARTICIPANT'));
+    assert.ok(participantSection.submissions.every((s) => s.registrationType === 'PARTICIPANT'));
+    assert.equal(participantSection.stats.totalCount, 2);
+    assert.equal(participantSection.stats.verifiedCount, 1);
+    assert.equal(participantSection.stats.pendingCount, 1);
+    assert.equal(participantSection.stats.verifiedRevenueInr, 99);
+    assert.equal(participantSection.stats.individualCount, 1);
+    assert.equal(participantSection.stats.groupCount, 1);
+
+    const audienceSection = selectors.selectScopedSectionData(mockPayload, 'AUDIENCE');
+    assert.equal(audienceSection.registrations.length, 2);
+    assert.ok(audienceSection.registrations.every((r) => r.registrationType === 'AUDIENCE'));
+    assert.ok(audienceSection.submissions.every((s) => s.registrationType === 'AUDIENCE'));
+    assert.equal(audienceSection.stats.totalCount, 2);
+    assert.equal(audienceSection.stats.verifiedCount, 1);
+    assert.equal(audienceSection.stats.pendingCount, 1);
+    assert.equal(audienceSection.stats.verifiedRevenueInr, 59);
+    assert.equal(audienceSection.stats.individualCount, 0);
+  } finally {
+    rmSync(adminApiOut, { recursive: true, force: true });
+  }
+});
+

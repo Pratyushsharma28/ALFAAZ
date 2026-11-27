@@ -204,9 +204,15 @@ export async function updateAdminStaffAccess(params: {
   );
 }
 
-export async function fetchAdminCheckinReport(): Promise<AdminCheckInReportPayload> {
+export async function fetchAdminCheckinReport(
+  registrationTypeFilter: 'all' | 'PARTICIPANT' | 'AUDIENCE' = 'all'
+): Promise<AdminCheckInReportPayload> {
   const token = await getAdminAccessToken();
-  const res = await fetch(apiUrl('/api/admin/checkins'), {
+  const query =
+    registrationTypeFilter === 'PARTICIPANT' || registrationTypeFilter === 'AUDIENCE'
+      ? `?registrationType=${encodeURIComponent(registrationTypeFilter)}`
+      : '';
+  const res = await fetch(apiUrl(`/api/admin/checkins${query}`), {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,

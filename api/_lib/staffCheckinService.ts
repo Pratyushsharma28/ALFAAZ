@@ -96,6 +96,22 @@ export interface AdminCheckInAuditLogItem {
   createdAt: string;
 }
 
+export type AdminTicketStatusCode = 'checked_in' | 'issued' | 'pending' | 'rejected' | 'revoked';
+
+export interface AdminRegistrationTicketStatus {
+  registrationId: string;
+  registrationCode: string;
+  registrationType: RegistrationType;
+  ticketId: string;
+  passCategoryLabel: string;
+  ticketStatus: AdminTicketStatusCode;
+  isValidTicket: boolean;
+  checkedIn: boolean;
+  checkedInAt: string | null;
+  checkedInByName: string | null;
+  verifiedAt: string | null;
+}
+
 function pickString(row: Record<string, unknown>, keys: string[], fallback = ''): string {
   for (const key of keys) {
     const val = row[key];
@@ -235,6 +251,8 @@ interface NormalizedRegistrationSummary {
   passCategoryLabel: string;
   categoriesDisplay: string;
   participantCount: number;
+  reconciledStatus: 'verified' | 'rejected' | 'pending';
+  isExplicitlyRevoked: boolean;
   isValidTicket: boolean;
   verifiedAt: string | null;
 }
@@ -368,6 +386,8 @@ async function fetchAllNormalizedRegistrations(
               regRow.categories ?? regRow.category ?? regRow.participation_categories
             ),
       participantCount,
+      reconciledStatus: reconciled,
+      isExplicitlyRevoked,
       isValidTicket: reconciled === 'verified' && !isExplicitlyRevoked,
       verifiedAt,
     };
@@ -898,10 +918,13 @@ export async function updateStaffAccess(params: {
   };
 }
 
-export async function getAdminCheckinReport(): Promise<{
+export async function getAdminCheckinReport(options?: {
+  registrationTypeFilter?: RegistrationType;
+}): Promise<{
   stats: CheckInSummaryStats;
   checkedInTickets: AdminCheckInRecordItem[];
   auditLogs: AdminCheckInAuditLogItem[];
+  ticketStatuses: AdminRegistrationTicketStatus[];
 }> {
   const supabase = getSupabaseAdminClient();
   const [normalizedRegs, checkinsRes, auditRes] = await Promise.all([
@@ -956,7 +979,7 @@ export async function getAdminCheckinReport(): Promise<{
   let participantCheckedInCount = 0;
   let audienceCheckedInCount = 0;
 
-  const checkedInTickets: AdminCheckInRecordItem[] = checkinRows.map((row) => {
+  const allCheckedInTickets: AdminCheckInRecordItem[] = checkinRows.map((row) => {
     const ticketId = pickString(row, ['ticket_id']);
     const registrationId = pickString(row, ['registration_id']);
     const reg = regByTicketId.get(ticketId) ?? regById.get(registrationId);
@@ -991,12 +1014,49 @@ export async function getAdminCheckinReport(): Promise<{
     };
   });
 
+  const checkinByTicketId = new Map<string, AdminCheckInRecordItem>();
+  const checkinByRegId = new Map<string, AdminCheckInRecordItem>();
+  for (const item of allCheckedInTickets) {
+    if (item.ticketId) checkinByTicketId.set(item.ticketId, item);
+    if (item.registrationId) checkinByRegId.set(item.registrationId, item);
+  }
+
+  const allTicketStatuses: AdminRegistrationTicketStatus[] = normalizedRegs.map((reg) => {
+    const activeCheckin =
+      checkinByTicketId.get(reg.ticketId) ?? checkinByRegId.get(reg.registrationId);
+
+    let ticketStatus: AdminTicketStatusCode = 'pending';
+    if (activeCheckin) {
+      ticketStatus = 'checked_in';
+    } else if (reg.isExplicitlyRevoked) {
+      ticketStatus = 'revoked';
+    } else if (reg.reconciledStatus === 'rejected') {
+      ticketStatus = 'rejected';
+    } else if (reg.isValidTicket) {
+      ticketStatus = 'issued';
+    }
+
+    return {
+      registrationId: reg.registrationId,
+      registrationCode: reg.registrationCode,
+      registrationType: reg.registrationType,
+      ticketId: reg.ticketId,
+      passCategoryLabel: reg.passCategoryLabel,
+      ticketStatus,
+      isValidTicket: reg.isValidTicket,
+      checkedIn: Boolean(activeCheckin),
+      checkedInAt: activeCheckin?.checkedInAt ?? null,
+      checkedInByName: activeCheckin?.checkedInByName ?? null,
+      verifiedAt: reg.verifiedAt,
+    };
+  });
+
   const remainingCount = Math.max(0, totalValidTickets - checkedInCount);
   const checkInRatePercent =
     totalValidTickets > 0 ? Math.round((checkedInCount / totalValidTickets) * 100) : 0;
 
   const auditRows = (auditRes.data as Record<string, unknown>[] | null) ?? [];
-  const auditLogs: AdminCheckInAuditLogItem[] = auditRows.map((row) => {
+  const allAuditLogs: AdminCheckInAuditLogItem[] = auditRows.map((row) => {
     const ticketId = pickString(row, ['ticket_id']);
     const regId = pickString(row, ['registration_id']);
     const reg = regByTicketId.get(ticketId) ?? regById.get(regId);
@@ -1015,6 +1075,17 @@ export async function getAdminCheckinReport(): Promise<{
     };
   });
 
+  const filterType = options?.registrationTypeFilter;
+  const checkedInTickets = filterType
+    ? allCheckedInTickets.filter((item) => item.registrationType === filterType)
+    : allCheckedInTickets;
+  const auditLogs = filterType
+    ? allAuditLogs.filter((item) => item.registrationType === filterType)
+    : allAuditLogs;
+  const ticketStatuses = filterType
+    ? allTicketStatuses.filter((item) => item.registrationType === filterType)
+    : allTicketStatuses;
+
   return {
     stats: {
       totalValidTickets,
@@ -1028,6 +1099,7 @@ export async function getAdminCheckinReport(): Promise<{
     },
     checkedInTickets,
     auditLogs,
+    ticketStatuses,
   };
 }
 

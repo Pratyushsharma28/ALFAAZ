@@ -12,6 +12,7 @@ import {
   RegistrationTimeBucket,
   TierBreakdownItem,
 } from '../types/admin';
+export { selectScopedSectionData } from './adminSelectors';
 import {
   AUDIENCE_PASS_FEE_INR,
   ENTRY_PASS_OPTIONS,
@@ -752,6 +753,8 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardPayload> 
     audienceVerifiedCount: audienceRegs.filter((r) => r.paymentStatus === 'verified').length,
     participantPendingCount: participantRegs.filter((r) => r.paymentStatus === 'pending').length,
     audiencePendingCount: audienceRegs.filter((r) => r.paymentStatus === 'pending').length,
+    participantRejectedCount: participantRegs.filter((r) => r.paymentStatus === 'rejected').length,
+    audienceRejectedCount: audienceRegs.filter((r) => r.paymentStatus === 'rejected').length,
     participantVerifiedAmountInr,
     audienceVerifiedAmountInr,
     individualCount: participantRegs.filter((r) => r.entryType === 'individual').length,

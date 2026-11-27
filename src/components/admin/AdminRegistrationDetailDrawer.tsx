@@ -5,6 +5,7 @@ import {
   AdminPaymentSubmissionRecord,
   AdminRegistrationRecord,
 } from '../../types/admin';
+import type { AdminRegistrationTicketStatus } from '../../types/staff';
 import { EDITORIAL_EASE } from '../MotionPrimitives';
 import {
   ENTRY_TYPE_META,
@@ -17,6 +18,7 @@ import {
 interface AdminRegistrationDetailDrawerProps {
   registration: AdminRegistrationRecord | null;
   linkedSubmission?: AdminPaymentSubmissionRecord | null;
+  ticketStatus?: AdminRegistrationTicketStatus | null;
   onClose: () => void;
   onInspectSubmission: (submission: AdminPaymentSubmissionRecord) => void;
 }
@@ -24,6 +26,7 @@ interface AdminRegistrationDetailDrawerProps {
 export function AdminRegistrationDetailDrawer({
   registration,
   linkedSubmission,
+  ticketStatus,
   onClose,
   onInspectSubmission,
 }: AdminRegistrationDetailDrawerProps) {
@@ -279,6 +282,51 @@ export function AdminRegistrationDetailDrawer({
                       {registration.adminRemarks || 'No remarks recorded yet.'}
                     </dd>
                   </div>
+                </dl>
+              </section>
+
+              {/* Ticket & Gate Check-In Information */}
+              <section>
+                <h3 className="border-b border-[#EAE7E0]/10 pb-2 text-xs font-semibold tracking-wider text-[#EAE7E0]/65 uppercase">
+                  Ticket & Gate Check-In Information
+                </h3>
+                <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 text-xs sm:grid-cols-2">
+                  <div>
+                    <dt className="text-[#EAE7E0]/55">Ticket ID</dt>
+                    <dd className="mt-0.5 font-mono-num font-semibold text-[#00E5FF]">
+                      {ticketStatus?.ticketId ??
+                        (registration.paymentStatus === 'verified'
+                          ? 'Issued upon verification'
+                          : 'Locked until payment verified')}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[#EAE7E0]/55">Ticket Status</dt>
+                    <dd className="mt-0.5 font-mono-num font-semibold text-[#EAE7E0]">
+                      {ticketStatus?.ticketStatus === 'checked_in'
+                        ? 'CHECKED IN'
+                        : ticketStatus?.ticketStatus === 'issued'
+                          ? 'ISSUED / VALID FOR ENTRY'
+                          : ticketStatus?.ticketStatus === 'revoked'
+                            ? 'REVOKED'
+                            : registration.paymentStatus === 'verified'
+                              ? 'ISSUED / VALID FOR ENTRY'
+                              : registration.paymentStatus === 'rejected'
+                                ? 'PAYMENT REJECTED'
+                                : 'PENDING VERIFICATION'}
+                    </dd>
+                  </div>
+                  {ticketStatus?.checkedIn && ticketStatus.checkedInAt && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-[#EAE7E0]/55">Gate Check-In Timestamp</dt>
+                      <dd className="mt-0.5 font-mono-num text-[#C8F36B]">
+                        {formatDateTime(ticketStatus.checkedInAt)}
+                        {ticketStatus.checkedInByName
+                          ? ` · Checked in by ${ticketStatus.checkedInByName}`
+                          : ''}
+                      </dd>
+                    </div>
+                  )}
                 </dl>
               </section>
             </div>

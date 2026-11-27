@@ -78,6 +78,8 @@ export interface AdminDashboardStats {
   audienceVerifiedCount: number;
   participantPendingCount: number;
   audiencePendingCount: number;
+  participantRejectedCount: number;
+  audienceRejectedCount: number;
   participantVerifiedAmountInr: number;
   audienceVerifiedAmountInr: number;
   individualCount: number;
@@ -93,6 +95,27 @@ export interface AdminDashboardStats {
   totalSubmissionCount: number;
   verifiedUniqueRegistrationCount: number;
   verificationRatePercent: number | null;
+}
+
+export interface AdminScopedSectionData {
+  registrationType: RegistrationType;
+  registrations: AdminRegistrationRecord[];
+  submissions: AdminPaymentSubmissionRecord[];
+  submissionsByRegId: Map<string, AdminPaymentSubmissionRecord>;
+  stats: {
+    totalCount: number;
+    verifiedCount: number;
+    pendingCount: number;
+    rejectedCount: number;
+    verifiedRevenueInr: number;
+    submissionCount: number;
+    pendingSubmissionCount: number;
+    verifiedSubmissionCount: number;
+    rejectedSubmissionCount: number;
+    individualCount: number;
+    coupleCount: number;
+    groupCount: number;
+  };
 }
 
 export interface RegistrationTimeBucket {

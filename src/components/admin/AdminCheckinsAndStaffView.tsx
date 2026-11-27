@@ -40,7 +40,13 @@ function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
-export function AdminCheckinsAndStaffView() {
+interface AdminCheckinsAndStaffViewProps {
+  onCheckinChanged?: () => void;
+}
+
+export function AdminCheckinsAndStaffView({
+  onCheckinChanged,
+}: AdminCheckinsAndStaffViewProps = {}) {
   const [report, setReport] = useState<AdminCheckInReportPayload | null>(null);
   const [staffUsers, setStaffUsers] = useState<StaffUserListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,7 +75,7 @@ export function AdminCheckinsAndStaffView() {
     setErrorMessage(null);
     try {
       const [reportData, staffData] = await Promise.all([
-        fetchAdminCheckinReport(),
+        fetchAdminCheckinReport(registrationTypeFilter),
         fetchAdminStaffList(),
       ]);
       setReport(reportData);
@@ -81,7 +87,7 @@ export function AdminCheckinsAndStaffView() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [registrationTypeFilter]);
 
   useEffect(() => {
     void loadAll();
@@ -167,6 +173,7 @@ export function AdminCheckinsAndStaffView() {
       setReversingItem(null);
       setReversalReason('');
       await loadAll();
+      onCheckinChanged?.();
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Unable to reverse check-in.');
     } finally {
@@ -240,7 +247,7 @@ export function AdminCheckinsAndStaffView() {
       )}
 
       {/* Attendance KPI Cards */}
-      <section aria-label="Check-In Attendance Summary" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="Check-In Attendance Summary" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="border border-[#EAE7E0]/12 bg-[#0B0B0D] p-5">
           <p className="font-mono-num text-[11px] tracking-wider text-[#EAE7E0]/55 uppercase">
             Total Valid Tickets
@@ -249,35 +256,55 @@ export function AdminCheckinsAndStaffView() {
             {stats.totalValidTickets}
           </p>
           <p className="mt-1 font-mono-num text-[11px] text-[#EAE7E0]/55">
-            Participants: {stats.participantValidTickets} · Audience: {stats.audienceValidTickets}
+            {stats.remainingCount} remaining to check in
           </p>
         </div>
 
         <div className="border border-[#C8F36B]/35 bg-[#0B0B0D] p-5">
           <p className="font-mono-num text-[11px] tracking-wider text-[#C8F36B] uppercase">
-            Checked-In Tickets
+            Combined Check-Ins
           </p>
           <p className="mt-2 font-display text-3xl font-black text-[#C8F36B]">
             {stats.checkedInCount}
           </p>
           <p className="mt-1 font-mono-num text-[11px] text-[#EAE7E0]/60">
-            Participants: {stats.participantCheckedInCount} · Audience: {stats.audienceCheckedInCount}
+            {stats.checkInRatePercent}% overall attendance
           </p>
         </div>
 
-        <div className="border border-[#00E5FF]/30 bg-[#0B0B0D] p-5">
+        <div className="border border-[#FF1744]/35 bg-[#0B0B0D] p-5">
+          <p className="font-mono-num text-[11px] tracking-wider text-[#FF1744] uppercase">
+            Participant Check-Ins
+          </p>
+          <p className="mt-2 font-display text-3xl font-black text-[#EAE7E0]">
+            {stats.participantCheckedInCount}{' '}
+            <span className="font-mono-num text-sm font-normal text-[#EAE7E0]/50">
+              / {stats.participantValidTickets}
+            </span>
+          </p>
+          <p className="mt-1 font-mono-num text-[11px] text-[#EAE7E0]/55">
+            Performers checked in
+          </p>
+        </div>
+
+        <div className="border border-[#00E5FF]/35 bg-[#0B0B0D] p-5">
           <p className="font-mono-num text-[11px] tracking-wider text-[#00E5FF] uppercase">
-            Remaining Attendees
+            Audience Check-Ins
           </p>
-          <p className="mt-2 font-display text-3xl font-black text-[#00E5FF]">
-            {stats.remainingCount}
+          <p className="mt-2 font-display text-3xl font-black text-[#EAE7E0]">
+            {stats.audienceCheckedInCount}{' '}
+            <span className="font-mono-num text-sm font-normal text-[#EAE7E0]/50">
+              / {stats.audienceValidTickets}
+            </span>
           </p>
-          <p className="mt-1 text-[11px] text-[#EAE7E0]/50">Yet to check in</p>
+          <p className="mt-1 font-mono-num text-[11px] text-[#EAE7E0]/55">
+            Watch-only attendees in
+          </p>
         </div>
 
         <div className="border border-[#EAE7E0]/12 bg-[#0B0B0D] p-5">
           <p className="font-mono-num text-[11px] tracking-wider text-[#EAE7E0]/55 uppercase">
-            Check-In Rate
+            Gate Progress
           </p>
           <p className="mt-2 font-display text-3xl font-black text-[#EAE7E0]">
             {stats.checkInRatePercent}%

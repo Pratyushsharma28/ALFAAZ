@@ -37,7 +37,22 @@ export default async function handler(
     const method = (req.method || 'GET').toUpperCase();
 
     if (method === 'GET') {
-      const report = await getAdminCheckinReport();
+      const parsedUrl = new URL(req.url || '/api/admin/checkins', 'http://localhost');
+      const rawType = (parsedUrl.searchParams.get('registrationType') || '').trim().toUpperCase();
+      let registrationTypeFilter: 'PARTICIPANT' | 'AUDIENCE' | undefined;
+      if (rawType) {
+        if (rawType === 'PARTICIPANT' || rawType === 'AUDIENCE') {
+          registrationTypeFilter = rawType;
+        } else {
+          throw new ApiHttpError(
+            400,
+            'Invalid registrationType filter. Expected PARTICIPANT or AUDIENCE.',
+            'VALIDATION_ERROR'
+          );
+        }
+      }
+
+      const report = await getAdminCheckinReport({ registrationTypeFilter });
       sendJson(res, 200, report);
       return;
     }

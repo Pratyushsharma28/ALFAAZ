@@ -103,8 +103,26 @@ export interface AdminCheckInAuditLogItem {
   createdAt: string;
 }
 
+export type AdminTicketStatusCode = 'checked_in' | 'issued' | 'pending' | 'rejected' | 'revoked';
+
+export interface AdminRegistrationTicketStatus {
+  registrationId: string;
+  registrationCode: string;
+  registrationType: RegistrationType;
+  ticketId: string;
+  passCategoryLabel: string;
+  ticketStatus: AdminTicketStatusCode;
+  isValidTicket: boolean;
+  checkedIn: boolean;
+  checkedInAt: string | null;
+  checkedInByName: string | null;
+  verifiedAt: string | null;
+}
+
 export interface AdminCheckInReportPayload {
   stats: CheckInSummaryStats;
   checkedInTickets: AdminCheckInRecordItem[];
   auditLogs: AdminCheckInAuditLogItem[];
+  ticketStatuses?: AdminRegistrationTicketStatus[];
 }
+
